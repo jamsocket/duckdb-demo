@@ -1,11 +1,9 @@
 # DuckDB Demo
 
-### Setup:
-
-Run `npm install` in both `/server` and `/client`.
-
 ### To develop:
 
+Run `npm install` in both `/server` and `/client`.
+Run `npm run buildDB` from `/server`.
 Run `npm run watch` in both `/server` and `/client` (in separate tabs).
 
 Then visit localhost:8080
