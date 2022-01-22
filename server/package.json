@@ -7,7 +7,8 @@
     "watch": "nodemon --watch . -e ts --exec npm run dev:start",
     "start": "SERVER_PORT=8080 node .",
     "dev:start": "npm run build && npm start",
-    "build": "rm -rf dist/* && tsc && cp dbConfig.js dist/ && node scripts/createDB.js",
+    "buildDB": "node scripts/createDB.js",
+    "build": "rm -rf dist/* && tsc && cp dbConfig.js dist/",
     "tsc": "tsc",
     "lint": "tslint -c tslint.json -p tsconfig.json"
   },

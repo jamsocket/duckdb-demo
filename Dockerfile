@@ -25,6 +25,7 @@ RUN npm run build
 WORKDIR /app/server
 COPY server .
 RUN mv /app/node_modules ./node_modules
+RUN npm run buildDB
 RUN npm run build
 
 EXPOSE 8080
