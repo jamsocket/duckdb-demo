@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom';
 import { io } from 'socket.io-client';
 import { StationsList } from './StationsList'
+import { StationsMap } from './StationsMap'
 import './index.css';
 import type {
   StationId,
@@ -17,8 +18,6 @@ type AppState = {
   totalTrips: number | null;
   tripsTimerange: [Date, Date] | null;
 }
-
-let responseCount = 0
 
 class App extends React.Component<AppProps, AppState> {
   socket: any;
@@ -38,13 +37,11 @@ class App extends React.Component<AppProps, AppState> {
     const socket = this.socket
     socket.on('total-trips', (res: TotalTripsResponse) => {
       this.setState({ totalTrips: res.totalTrips })
-      console.log('responseCount', responseCount++)
     })
     socket.on('trips-timerange', (res: TripsTimerangeResponse) => {
       this.setState({
         tripsTimerange: [new Date(res.tripsTimerange[0]), new Date(res.tripsTimerange[1])]
       })
-      console.log('responseCount', responseCount++)
     })
     socket.on('stations-metadata', (res: StationsMetadataResponse) => {
       const { stationsMap } = this.state
@@ -57,7 +54,6 @@ class App extends React.Component<AppProps, AppState> {
         stationsMap.set(station.id, station)
       }
       this.setState({ stationsMap })
-      console.log('responseCount', responseCount++)
     })
 
     socket.emit('total-trips')
@@ -70,6 +66,8 @@ class App extends React.Component<AppProps, AppState> {
   }
   render() {
     const { stationsMap, tripsTimerange, totalTrips } = this.state
+    const stations = Array.from(stationsMap.values())
+
     return (
       <div className="App">
         <header className="App-header">
@@ -83,7 +81,12 @@ class App extends React.Component<AppProps, AppState> {
               ) : null}
             </h3>
         </header>
-        <StationsList stationsMap={stationsMap} socket={this.socket} />
+        {stations.length ? (
+          <div className="App-body">
+            <div className="App-left"><div className="Map-container"><StationsMap stations={stations} socket={this.socket} /></div></div>
+            <div className="App-right"><StationsList stationsMap={stationsMap} socket={this.socket} /></div>
+          </div>
+        ) : null}
       </div>
     )
   }

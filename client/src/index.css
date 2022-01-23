@@ -30,3 +30,25 @@ body {
 .App-header .TotalTrips {
   text-align: center;
 }
+
+.App-body {
+  display: flex;
+  justify-content: space-between;
+  height: calc(100vh - 40px);
+}
+
+.App-left {
+  width: calc(50% - 20px);
+}
+
+.App-right {
+  width: calc(50% - 20px);
+  overflow: scroll;
+}
+
+.Map-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
