@@ -45,24 +45,28 @@ class Station extends React.Component<StationProps, StationState> {
     socket.on('end-stations-by-start-station', (res: EndStationsByStartStationResponse) => {
       if (this.props.metadata.id !== res.stationId) return
       console.log('responseCount', responseCount++)
+      // eslint-disable-next-line react/no-direct-mutation-state
       this.state.data.tripCountByEndStation = res.tripCountByEndStation
       this.setState({ data: this.state.data })
     })
     socket.on('user-types-by-start-station', (res: UserTypesByStartStationResponse) => {
       if (this.props.metadata.id !== res.stationId) return
       console.log('responseCount', responseCount++)
+      // eslint-disable-next-line react/no-direct-mutation-state
       this.state.data.tripCountByUserType = res.tripCountByUserType
       this.setState({ data: this.state.data })
     })
     socket.on('hourly-trip-count-by-start-station', (res: HourlyTripCountByStartStationResponse) => {
       if (this.props.metadata.id !== res.stationId) return
       console.log('responseCount', responseCount++)
+      // eslint-disable-next-line react/no-direct-mutation-state
       this.state.data.tripCountByDay = res.tripCountByDay
       this.setState({ data: this.state.data })
     })
     socket.on('user-birth-year-by-start-station', (res: UserBirthYearByStartStationResponse) => {
       if (this.props.metadata.id !== res.stationId) return
       console.log('responseCount', responseCount++)
+      // eslint-disable-next-line react/no-direct-mutation-state
       this.state.data.tripCountByUserBirthYear = res.tripCountByUserBirthYear
       this.setState({ data: this.state.data })
     })
