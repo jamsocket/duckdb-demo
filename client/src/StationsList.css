@@ -1,0 +1,73 @@
+.Stations {
+  display: flex;
+  flex-flow: row wrap;
+  margin: 0;
+  padding: 24px 0;
+  list-style: none;
+  width: 100%;
+}
+
+.Stations li {
+  display: flex;
+  justify-content: space-between;
+  width: calc(25% - 30px);
+  color: #888;
+  font-size: 10px;
+  margin: 3px 15px;
+  transition: color 500ms linear 500ms;
+}
+
+.Stations li.isLoaded {
+  color: #ddd;
+}
+
+.StationName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: calc(100% - 105px); /* 100% minus the width+margin of the DataLoader */
+}
+
+.StationData {
+  height: 100%;
+  width: 100px;
+  margin-left: 5px;
+  position: relative;
+}
+
+.TripsCount {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 100%;
+  text-align: right;
+  opacity: 0;
+  transition: opacity 300ms linear 500ms;
+}
+
+.Stations li.isLoaded .TripsCount {
+  opacity: 1;
+}
+
+.DataLoader {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 100%;
+  background-color: rgba(255, 255, 255, 0.04);
+  opacity: 1;
+  transition: opacity 300ms linear 500ms;
+}
+
+.Stations li.isLoaded .DataLoader {
+  opacity: 0;
+}
+
+.DataLoader-bar {
+  height: 100%;
+  background-color: rgba(255, 255, 255, 0.1);
+  width: 0%;
+  transition: width 300ms ease-in-out;
+}
