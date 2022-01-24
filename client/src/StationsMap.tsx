@@ -16,10 +16,10 @@ import type {
 const roads = require('./manhattan-roads')
 
 const STATIONS_DATA_PROPERTY_COUNT = 4
-const STATIONS_OPACITY = 0.7
-const STATIONS_RADIUS = 3
-const TRANSITION_RATE = 0.2
-const CONNECTION_OPACITY = 0.01
+const STATIONS_OPACITY = 0.8
+const STATIONS_RADIUS = 4
+const TRANSITION_RATE = 0.15
+const CONNECTION_OPACITY = 0.015
 const TRIPS_CONNECTION_THRESHOLD = 4
 
 type StationData = {
@@ -52,7 +52,7 @@ export class StationsMap extends React.Component<StationsMapProps> {
   connectionsCtx: CanvasRenderingContext2D | null = null;
   stationsCtx: CanvasRenderingContext2D | null = null;
   highlightedCtx: CanvasRenderingContext2D | null = null;
-  projection = d3Geo.geoMercator().center([-73.96, 40.79]).scale(330000);
+  projection = d3Geo.geoMercator().center([-73.96, 40.77]).scale(320000);
   width = 0;
   height = 0;
   rafToken = 0;
