@@ -54,11 +54,9 @@ class App extends React.Component<AppProps, AppState> {
     socket.on('stations-metadata', (res: StationsMetadataResponse) => {
       const { stationsMap } = this.state
       for (const station of res) {
-        if (stationsMap.has(station.id)) {
-          console.log('FOUND DUPLICATE STATIONS IN METADATA RESPONSE')
-          console.log(station)
-          console.log(stationsMap.get(station.id))
-        }
+        // Note: this overwrites any stations that were already set in the stationsMap
+        // This can occur because the stations-metadata response includes duplicates
+        // where a station's lnglat has changed slightly
         stationsMap.set(station.id, station)
       }
       this.setState({ stationsMap })

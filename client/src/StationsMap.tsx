@@ -84,8 +84,10 @@ export class StationsMap extends React.Component<StationsMapProps> {
       this.stationsPercRendered.set(station.id, 0)
     }
 
+    const highlightedStation = this.isDoneRenderingStations ? this.props.highlightedStation : null
+
     this.baseCanvasRef.current!.style.opacity = '1'
-    if (this.props.highlightedStation) {
+    if (highlightedStation) {
       this.connectionsCanvasRef.current!.style.opacity = '0.5'
       this.stationsCanvasRef.current!.style.opacity = '0.5'
       this.highlightedCanvasRef.current!.style.opacity = '1'
@@ -137,7 +139,8 @@ export class StationsMap extends React.Component<StationsMapProps> {
 
   componentDidUpdate(prevProps: StationsMapProps) {
     if (this.props.highlightedStation !== prevProps.highlightedStation) {
-      if (this.props.highlightedStation !== null) {
+      const highlightedStation = this.isDoneRenderingStations ? this.props.highlightedStation : null
+      if (highlightedStation !== null) {
         this.connectionsCanvasRef.current!.style.opacity = '0.25'
         this.stationsCanvasRef.current!.style.opacity = '0.5'
         this.highlightedCanvasRef.current!.style.opacity = '1'
@@ -162,7 +165,8 @@ export class StationsMap extends React.Component<StationsMapProps> {
     this.drawStations()
     this.drawNewConnections(this.connectionsSinceLastFrame)
     this.connectionsSinceLastFrame.length = 0
-    this.drawHighlightedStation(this.props.highlightedStation)
+    const highlightedStation = this.isDoneRenderingStations ? this.props.highlightedStation : null
+    this.drawHighlightedStation(highlightedStation)
     this.rafToken = requestAnimationFrame(this.renderLoop)
   }
 
