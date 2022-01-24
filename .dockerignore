@@ -1,7 +1,9 @@
-server/node_modules
-client/node_modules
 .git
 .DS_Store
+
+server/node_modules
 server/dist
-client/build
 server/db
+
+client/node_modules
+client/build

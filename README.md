@@ -1,31 +1,60 @@
 # DuckDB Demo
 
-### To develop:
+## To develop:
 
-Run `npm install` in both `/server` and `/client`.
-Run `npm run buildDB` from `/server`.
-Run `npm run watch` in both `/server` and `/client` (in separate tabs).
+From `/client`:
 
-Then visit localhost:8080
-
-### To build a run in a container:
-
+```sh
+$ npm install
+$ npm run watch
 ```
+
+From `/server` (in separate tab):
+
+```sh
+$ npm install
+$ npm run buildDB
+$ npm run watch
+```
+
+Then visit [localhost:8080](http://localhost:8080)
+
+## To build and run in a container:
+
+```sh
 $ docker build -t duckdb-demo .
 $ docker run -dp 8080:8080 duckdb-demo
 ```
 
-Then visit localhost:8080
+Then visit [localhost:8080](http://localhost:8080)
 
-Note: you might run into memory issues with building DuckDB's binaries in the container when running `docker build`. It's recommended you up the memory settings for Docker. With Docker Desktop, you can do this in the preferences panel's "Resources" tab.
+**Note:** you might run into memory issues with building DuckDB's binaries in the container when running `docker build`. It's recommended you up the memory settings for Docker. With Docker Desktop, you can do this in the preferences panel's "Resources" tab.
+
+-----
 
 ### To build (outside of container):
 
-Run `npm run buildDB` from `/server`.
-Then run `npm run build` in both `/server` and `/client` (after `npm install`).
+From `/client`:
 
-### To run (after building and outside of container):
+```sh
+$ npm install
+$ npm run build
+```
 
-Run `npm start` from `/server`.
+From `/server`:
+
+```sh
+$ npm install
+$ npm run buildDB
+$ npm run build
+```
+
+### To run outside of container:
+
+From `/server`:
+
+```sh
+$ npm start
+```
 
 To run in debug mode, simply hit F5

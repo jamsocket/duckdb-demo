@@ -2,8 +2,8 @@ FROM node:16.13.2
 
 # Copying package.json & installing node_modules directories
 # up top here because these are expensive calls and package.json
-# rarely changes, so we can take advantage of docker's caching
-# here to dramatically speed up builds
+# rarely changes, so we can take advantage of docker's incremental
+# builds to dramatically speed up the container build time.
 WORKDIR /app/server
 COPY server/package.json .
 COPY server/package-lock.json .
@@ -31,4 +31,5 @@ RUN npm run buildDB
 RUN npm run build
 
 EXPOSE 8080
+WORKDIR /app/server
 CMD ["npm", "start"]
