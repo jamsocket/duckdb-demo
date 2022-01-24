@@ -1,5 +1,6 @@
 export type TotalTripsResponse = { totalTrips: number }
 export type TripsTimerangeResponse = { tripsTimerange: [string, string] }
+export type MaxHourlyTripsResponse = { maxHourlyTrips: number }
 
 export type StationId = number;
 export type StationMetadata = { id: StationId; latitude: number; longitude: number; name: string }
@@ -34,6 +35,7 @@ export type UserBirthYearByStartStationResponse = {
 
 export type TotalTripsDB = { 'count_star()': number }[]
 export type TripsTimerangeDB = { 'min(start_time)': Date; 'max(start_time)': Date }[]
+export type MaxHourlyTripsDB = { 'count_star()': number }[]
 export type StationMetadataDB = {
   start_station_id: StationId;
   start_station_latitude: number;

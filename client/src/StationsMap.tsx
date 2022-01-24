@@ -32,9 +32,11 @@ type StationData = {
 type StationPercRendered = number
 type Connection = [StationId, StationId]
 
-let responseCount = 0
-
-type StationsMapProps = { socket: any; stations: StationMetadata[] }
+type StationsMapProps = {
+  socket: any;
+  stations: StationMetadata[];
+  highlightedStation: StationId | null;
+}
 export class StationsMap extends React.Component<StationsMapProps> {
   responseCount = 0;
   // @ts-ignore
@@ -45,9 +47,11 @@ export class StationsMap extends React.Component<StationsMapProps> {
   baseCanvasRef = React.createRef<HTMLCanvasElement>();
   connectionsCanvasRef = React.createRef<HTMLCanvasElement>();
   stationsCanvasRef = React.createRef<HTMLCanvasElement>();
+  highlightedCanvasRef = React.createRef<HTMLCanvasElement>();
   baseCtx: CanvasRenderingContext2D | null = null;
   connectionsCtx: CanvasRenderingContext2D | null = null;
   stationsCtx: CanvasRenderingContext2D | null = null;
+  highlightedCtx: CanvasRenderingContext2D | null = null;
   projection = d3Geo.geoMercator().center([-73.96, 40.79]).scale(330000);
   width = 0;
   height = 0;
@@ -67,14 +71,28 @@ export class StationsMap extends React.Component<StationsMapProps> {
     this.connectionsCanvasRef.current!.height = height
     this.stationsCanvasRef.current!.width = width
     this.stationsCanvasRef.current!.height = height
+    this.highlightedCanvasRef.current!.width = width
+    this.highlightedCanvasRef.current!.height = height
 
     this.baseCtx = this.baseCanvasRef.current!.getContext('2d')
     this.connectionsCtx = this.connectionsCanvasRef.current!.getContext('2d')
     this.stationsCtx = this.stationsCanvasRef.current!.getContext('2d')
+    this.highlightedCtx = this.highlightedCanvasRef.current!.getContext('2d')
 
     for (const station of this.props.stations) {
       this.stationsMetadataMap.set(station.id, station)
       this.stationsPercRendered.set(station.id, 0)
+    }
+
+    this.baseCanvasRef.current!.style.opacity = '1'
+    if (this.props.highlightedStation) {
+      this.connectionsCanvasRef.current!.style.opacity = '0.5'
+      this.stationsCanvasRef.current!.style.opacity = '0.5'
+      this.highlightedCanvasRef.current!.style.opacity = '1'
+    } else {
+      this.connectionsCanvasRef.current!.style.opacity = '1'
+      this.stationsCanvasRef.current!.style.opacity = '1'
+      this.highlightedCanvasRef.current!.style.opacity = '0'
     }
 
     this.drawBaseMap()
@@ -88,10 +106,11 @@ export class StationsMap extends React.Component<StationsMapProps> {
     }
 
     socket.on('end-stations-by-start-station', (res: EndStationsByStartStationResponse) => {
-      console.log('responseCount', responseCount++)
       if (!stationsDataMap.has(res.stationId)) stationsDataMap.set(res.stationId, {})
       const data = stationsDataMap.get(res.stationId)!
+      const alreadyHasData = Boolean(data.tripCountByEndStation)
       data.tripCountByEndStation = res.tripCountByEndStation
+      if (alreadyHasData) return
       for (const endStationIdStr of Object.keys(data.tripCountByEndStation)) {
         const endStationId = Number(endStationIdStr)
         const tripCount = data.tripCountByEndStation[endStationId]
@@ -100,23 +119,34 @@ export class StationsMap extends React.Component<StationsMapProps> {
       }
     })
     socket.on('user-types-by-start-station', (res: UserTypesByStartStationResponse) => {
-      console.log('responseCount', responseCount++)
       if (!stationsDataMap.has(res.stationId)) stationsDataMap.set(res.stationId, {})
       const data = stationsDataMap.get(res.stationId)!
       data.tripCountByUserType = res.tripCountByUserType
     })
     socket.on('hourly-trip-count-by-start-station', (res: HourlyTripCountByStartStationResponse) => {
-      console.log('responseCount', responseCount++)
       if (!stationsDataMap.has(res.stationId)) stationsDataMap.set(res.stationId, {})
       const data = stationsDataMap.get(res.stationId)!
       data.tripCountByDay = res.tripCountByDay
     })
     socket.on('user-birth-year-by-start-station', (res: UserBirthYearByStartStationResponse) => {
-      console.log('responseCount', responseCount++)
       if (!stationsDataMap.has(res.stationId)) stationsDataMap.set(res.stationId, {})
       const data = stationsDataMap.get(res.stationId)!
       data.tripCountByUserBirthYear = res.tripCountByUserBirthYear
     })
+  }
+
+  componentDidUpdate(prevProps: StationsMapProps) {
+    if (this.props.highlightedStation !== prevProps.highlightedStation) {
+      if (this.props.highlightedStation !== null) {
+        this.connectionsCanvasRef.current!.style.opacity = '0.25'
+        this.stationsCanvasRef.current!.style.opacity = '0.5'
+        this.highlightedCanvasRef.current!.style.opacity = '1'
+      } else {
+        this.connectionsCanvasRef.current!.style.opacity = '1'
+        this.stationsCanvasRef.current!.style.opacity = '1'
+        this.highlightedCanvasRef.current!.style.opacity = '0'
+      }
+    }
   }
 
   startRenderLoop() {
@@ -132,6 +162,7 @@ export class StationsMap extends React.Component<StationsMapProps> {
     this.drawStations()
     this.drawNewConnections(this.connectionsSinceLastFrame)
     this.connectionsSinceLastFrame.length = 0
+    this.drawHighlightedStation(this.props.highlightedStation)
     this.rafToken = requestAnimationFrame(this.renderLoop)
   }
 
@@ -189,6 +220,40 @@ export class StationsMap extends React.Component<StationsMapProps> {
     this.connectionsCtx.stroke()
   }
 
+  drawHighlightedStation(highlightedStationId: StationId | null) {
+    if (!this.highlightedCtx || highlightedStationId === null) return
+    this.highlightedCtx.clearRect(0, 0, this.width, this.height)
+
+    const station = this.stationsMetadataMap.get(highlightedStationId)!
+    const stationXY = this.projection([station.longitude, station.latitude])
+    if (!stationXY) return
+
+    const data = this.stationsDataMap.get(highlightedStationId)
+    if (data?.tripCountByEndStation) {
+      for (const endStationIdStr of Object.keys(data.tripCountByEndStation)) {
+        const endStationId = Number(endStationIdStr)
+        const endStation = this.stationsMetadataMap.get(endStationId)
+        const tripCount = data.tripCountByEndStation[endStationId]
+        if (!endStation) continue
+        const endXY = this.projection([endStation.longitude, endStation.latitude])
+        if (!endXY) continue
+        this.highlightedCtx.beginPath()
+        this.highlightedCtx.moveTo(stationXY[0], stationXY[1])
+        this.highlightedCtx.lineTo(endXY[0], endXY[1])
+        this.highlightedCtx.lineWidth = tripCount / 10;
+        this.highlightedCtx.strokeStyle = `rgba(230, 230, 250, 0.6)`
+        this.highlightedCtx.stroke()
+      }
+    }
+
+    this.highlightedCtx.beginPath()
+    this.highlightedCtx.arc(stationXY[0], stationXY[1], STATIONS_RADIUS * 2, 0, Math.PI * 2)
+    this.highlightedCtx.fillStyle = `rgba(255, 127, 80, 1)`
+    this.highlightedCtx.strokeStyle = `rgba(50, 50, 50, 0.5)`
+    this.highlightedCtx.fill()
+    this.highlightedCtx.stroke()
+  }
+
   componentWillUnmount() {
     this.stopRenderLoop()
     const socket = this.props.socket
@@ -203,6 +268,7 @@ export class StationsMap extends React.Component<StationsMapProps> {
         <canvas ref={this.baseCanvasRef} />
         <canvas ref={this.connectionsCanvasRef} />
         <canvas ref={this.stationsCanvasRef} />
+        <canvas ref={this.highlightedCanvasRef} />
       </div>
     )
   }

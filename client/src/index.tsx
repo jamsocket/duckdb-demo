@@ -8,6 +8,7 @@ import type {
   StationId,
   StationMetadata,
   TotalTripsResponse,
+  MaxHourlyTripsResponse,
   TripsTimerangeResponse,
   StationsMetadataResponse
 } from '../../server/api.types'
@@ -17,6 +18,8 @@ type AppState = {
   stationsMap: Map<StationId, StationMetadata>;
   totalTrips: number | null;
   tripsTimerange: [Date, Date] | null;
+  highlightedStation: StationId | null;
+  maxHourlyTrips: number | null;
 }
 
 class App extends React.Component<AppProps, AppState> {
@@ -29,7 +32,9 @@ class App extends React.Component<AppProps, AppState> {
     this.state = {
       stationsMap: new Map(),
       totalTrips: null,
-      tripsTimerange: null
+      tripsTimerange: null,
+      highlightedStation: null,
+      maxHourlyTrips: null
     }
   }
 
@@ -42,6 +47,9 @@ class App extends React.Component<AppProps, AppState> {
       this.setState({
         tripsTimerange: [new Date(res.tripsTimerange[0]), new Date(res.tripsTimerange[1])]
       })
+    })
+    socket.on('max-hourly-trips', (res: MaxHourlyTripsResponse) => {
+      this.setState({ maxHourlyTrips: res.maxHourlyTrips })
     })
     socket.on('stations-metadata', (res: StationsMetadataResponse) => {
       const { stationsMap } = this.state
@@ -58,6 +66,7 @@ class App extends React.Component<AppProps, AppState> {
 
     socket.emit('total-trips')
     socket.emit('trips-timerange')
+    socket.emit('max-hourly-trips')
     socket.emit('stations-metadata')
   }
   componentWillUnmount() {
@@ -65,7 +74,7 @@ class App extends React.Component<AppProps, AppState> {
     this.socket.off('stations-metadata')
   }
   render() {
-    const { stationsMap, tripsTimerange, totalTrips } = this.state
+    const { stationsMap, tripsTimerange, totalTrips, maxHourlyTrips } = this.state
     const stations = Array.from(stationsMap.values())
 
     return (
@@ -81,10 +90,25 @@ class App extends React.Component<AppProps, AppState> {
               ) : null}
             </h3>
         </header>
-        {stations.length ? (
+        {stations.length && maxHourlyTrips ? (
           <div className="App-body">
-            <div className="App-left"><div className="Map-container"><StationsMap stations={stations} socket={this.socket} /></div></div>
-            <div className="App-right"><StationsList stationsMap={stationsMap} socket={this.socket} /></div>
+            <div className="App-left">
+              <div className="Map-container">
+                <StationsMap
+                  stations={stations}
+                  socket={this.socket}
+                  highlightedStation={this.state.highlightedStation}
+                />
+              </div>
+            </div>
+            <div className="App-right">
+              <StationsList
+                maxHourlyTrips={maxHourlyTrips}
+                stationsMap={stationsMap}
+                socket={this.socket}
+                onStationHover={(id) => this.setState({ highlightedStation: id })}
+              />
+            </div>
           </div>
         ) : null}
       </div>

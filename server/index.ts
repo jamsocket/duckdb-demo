@@ -10,6 +10,7 @@ import type {
   UserType,
   TripCountByDay,
   TotalTripsResponse,
+  MaxHourlyTripsResponse,
   StationsMetadataResponse,
   EndStationsByStartStationResponse,
   UserTypesByStartStationResponse,
@@ -17,7 +18,7 @@ import type {
   UserBirthYearByStartStationResponse,
   // types for what we expect to be returned from DuckDB
   TotalTripsDB,
-  StationMetadataDB,
+  MaxHourlyTripsDB,
   StationsMetadataDB,
   EndStationsByStartStationDB,
   UserTypesByStartStationDB,
@@ -64,6 +65,15 @@ io.on('connection', (socket: any) => {
     })
   });
 
+  socket.on('max-hourly-trips', () => {
+    db.all(`SELECT COUNT(*) FROM ${tableName} GROUP BY HOUR(start_time), start_station_id`, (err: any, result: MaxHourlyTripsDB) => {
+      let max = 0;
+      for (const obj of result) max = Math.max(max, obj['count_star()'])
+      const response: MaxHourlyTripsResponse = { maxHourlyTrips: max }
+      socket.emit('max-hourly-trips', response)
+    })
+  });
+
   socket.on('stations-metadata', () => {
     db.all(`SELECT DISTINCT start_station_id, start_station_name, start_station_latitude, start_station_longitude FROM ${tableName}`, (err: any, result: StationsMetadataDB) => {
       const response: StationsMetadataResponse = result.map(station => ({
@@ -77,8 +87,6 @@ io.on('connection', (socket: any) => {
   });
 
   socket.on('station-stats', (stationId: StationId) => {
-    console.log('station stats requested:', stationId)
-
     // 1. get counts from stationId to all other stations
     db.all(`SELECT end_station_id, COUNT(*) FROM ${tableName} WHERE start_station_id=${stationId} GROUP BY end_station_id`, (err: any, result: EndStationsByStartStationDB) => {
       const tripCountByEndStation: Record<StationId, number> = {}
