@@ -56,5 +56,3 @@ From `/server`:
 ```sh
 $ npm start
 ```
-
-To run in debug mode, simply hit F5
