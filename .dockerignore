@@ -4,6 +4,7 @@
 server/node_modules
 server/dist
 server/db
+server/data
 
 client/node_modules
 client/build

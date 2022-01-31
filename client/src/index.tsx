@@ -27,8 +27,6 @@ class App extends React.Component<AppProps, AppState> {
 
   constructor(props: AppProps) {
     super(props)
-    // @ts-ignore
-    this.socket = (window.socket = io())
     this.state = {
       stationsMap: new Map(),
       totalTrips: null,
@@ -39,21 +37,27 @@ class App extends React.Component<AppProps, AppState> {
   }
 
   componentDidMount() {
+    // @ts-ignore
+    this.socket = (window.socket = io())
     const socket = this.socket
     socket.on('total-trips', (res: TotalTripsResponse) => {
+      console.log('total-trips response queryTime', res.queryTime)
       this.setState({ totalTrips: res.totalTrips })
     })
     socket.on('trips-timerange', (res: TripsTimerangeResponse) => {
+      console.log('trips-timerange response queryTime', res.queryTime)
       this.setState({
         tripsTimerange: [new Date(res.tripsTimerange[0]), new Date(res.tripsTimerange[1])]
       })
     })
     socket.on('max-hourly-trips', (res: MaxHourlyTripsResponse) => {
+      console.log('max-hourly-trips response queryTime', res.queryTime)
       this.setState({ maxHourlyTrips: res.maxHourlyTrips })
     })
     socket.on('stations-metadata', (res: StationsMetadataResponse) => {
+      console.log('stations-metadata response queryTime', res.queryTime)
       const { stationsMap } = this.state
-      for (const station of res) {
+      for (const station of res.stations) {
         // Note: this overwrites any stations that were already set in the stationsMap
         // This can occur because the stations-metadata response includes duplicates
         // where a station's lnglat has changed slightly

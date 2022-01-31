@@ -113,6 +113,7 @@ export class StationsMap extends React.Component<StationsMapProps> {
       const alreadyHasData = Boolean(data.tripCountByEndStation)
       data.tripCountByEndStation = res.tripCountByEndStation
       if (alreadyHasData) return
+      console.log('end-stations-by-start-station response queryTime', res.queryTime)
       for (const endStationIdStr of Object.keys(data.tripCountByEndStation)) {
         const endStationId = Number(endStationIdStr)
         const tripCount = data.tripCountByEndStation[endStationId]
@@ -121,16 +122,19 @@ export class StationsMap extends React.Component<StationsMapProps> {
       }
     })
     socket.on('user-types-by-start-station', (res: UserTypesByStartStationResponse) => {
+      console.log('user-types-by-start-station response queryTime', res.queryTime)
       if (!stationsDataMap.has(res.stationId)) stationsDataMap.set(res.stationId, {})
       const data = stationsDataMap.get(res.stationId)!
       data.tripCountByUserType = res.tripCountByUserType
     })
     socket.on('hourly-trip-count-by-start-station', (res: HourlyTripCountByStartStationResponse) => {
+      console.log('hourly-trip-count-by-start-station response queryTime', res.queryTime)
       if (!stationsDataMap.has(res.stationId)) stationsDataMap.set(res.stationId, {})
       const data = stationsDataMap.get(res.stationId)!
       data.tripCountByDay = res.tripCountByDay
     })
     socket.on('user-birth-year-by-start-station', (res: UserBirthYearByStartStationResponse) => {
+      console.log('user-birth-year-by-start-station response queryTime', res.queryTime)
       if (!stationsDataMap.has(res.stationId)) stationsDataMap.set(res.stationId, {})
       const data = stationsDataMap.get(res.stationId)!
       data.tripCountByUserBirthYear = res.tripCountByUserBirthYear

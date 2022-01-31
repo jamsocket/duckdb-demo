@@ -13,7 +13,8 @@ From `/server` (in separate tab):
 
 ```sh
 $ npm install
-$ npm run buildDB
+$ npm run download-data
+$ npm run build-db
 $ npm run watch
 ```
 
@@ -45,7 +46,8 @@ From `/server`:
 
 ```sh
 $ npm install
-$ npm run buildDB
+$ npm run download-data
+$ npm run build-db
 $ npm run build
 ```
 

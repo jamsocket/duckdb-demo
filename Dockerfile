@@ -14,6 +14,8 @@ COPY server/package-lock.json .
 RUN mv /duckdb_node_modules ./node_modules
 RUN npm install
 RUN mv node_modules /app/node_modules
+RUN npm run download-data
+RUN mv data /app/data
 WORKDIR /app/client
 COPY client/package.json .
 COPY client/package-lock.json .
@@ -24,6 +26,7 @@ RUN mv node_modules /app/node_modules-client
 WORKDIR /app/server
 COPY server .
 RUN mv /app/node_modules ./node_modules
+RUN mv /app/data ./data
 WORKDIR /app/client
 COPY client .
 RUN mv /app/node_modules-client ./node_modules
@@ -32,7 +35,7 @@ RUN mv /app/node_modules-client ./node_modules
 WORKDIR /app/client
 RUN npm run build
 WORKDIR /app/server
-RUN npm run buildDB
+RUN npm run build-db
 RUN npm run build
 
 EXPOSE 8080

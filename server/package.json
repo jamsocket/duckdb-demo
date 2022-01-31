@@ -7,14 +7,17 @@
     "watch": "nodemon --watch . -e ts --exec npm run dev:start",
     "start": "SERVER_PORT=8080 node .",
     "dev:start": "npm run build && npm start",
-    "buildDB": "node scripts/createDB.js",
+    "download-data": "curl https://storage.googleapis.com/jamsocket-demo-data/2018-2020-citibike-trips.csv.gz > data/2018-2020-citibike-trips.csv.gz",
+    "build-db": "node scripts/build-db.js",
     "build": "rm -rf dist/* && tsc && cp dbConfig.js dist/",
     "tsc": "tsc",
     "lint": "tslint -c tslint.json -p tsconfig.json"
   },
   "dependencies": {
+    "d3-dsv": "^3.0.1",
     "duckdb": "0.3.1",
     "express": "4.17.2",
+    "minimist": "^1.2.5",
     "socket.io": "4.4.1"
   },
   "devDependencies": {
