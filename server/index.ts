@@ -124,7 +124,7 @@ io.on('connection', (socket: any) => {
         tripCountByEndStation,
         queryTime: performance.now() - dbCallPlaced
       }
-      delayResponse(socket, 'end-stations-by-start-station', response)
+      socket.emit('end-stations-by-start-station', response)
     })
     // 2. get user type counts for trips from stationId
     db.all(`SELECT user_type, COUNT(*) FROM ${tableName} WHERE start_station_id=${stationId} GROUP BY user_type`, (err: any, result: UserTypesByStartStationDB) => {
@@ -138,7 +138,7 @@ io.on('connection', (socket: any) => {
         tripCountByUserType,
         queryTime: performance.now() - dbCallPlaced
       }
-      delayResponse(socket, 'user-types-by-start-station', response)
+      socket.emit('user-types-by-start-station', response)
     })
     // 3. TODO: get trip duration distribution for trips from stationId
     // 4. get trip start time timeseries for trips from stationId
@@ -164,7 +164,7 @@ io.on('connection', (socket: any) => {
         tripCountByDay,
         queryTime: performance.now() - dbCallPlaced
       }
-      delayResponse(socket, 'hourly-trip-count-by-start-station', response)
+      socket.emit('hourly-trip-count-by-start-station', response)
     })
 
     // 5. get birth year distribution for trips from stationId
@@ -179,7 +179,7 @@ io.on('connection', (socket: any) => {
         tripCountByUserBirthYear,
         queryTime: performance.now() - dbCallPlaced
       }
-      delayResponse(socket, 'user-birth-year-by-start-station', response)
+      socket.emit('user-birth-year-by-start-station', response)
     })
   })
 });
@@ -187,10 +187,3 @@ io.on('connection', (socket: any) => {
 app.get('/', (req: any, res: any) => {
   res.sendFile(path.join(__dirname, '../../client/build/index.html'))
 })
-
-const MAXDELAY = 0 // 3000
-function delayResponse (socket: any, name: string, contents: any) {
-  setTimeout(() => {
-    socket.emit(name, contents)
-  }, Math.random() * MAXDELAY)
-}
