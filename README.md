@@ -22,9 +22,11 @@ Then visit [localhost:8080](http://localhost:8080)
 ## To build and run in a container:
 
 ```sh
-$ docker build -t duckdb-demo .
+$ docker build --platform linux/amd64 -t duckdb-demo .
 $ docker run -dp 8080:8080 duckdb-demo
 ```
+
+Note: on M1 Macs (and other ARM-based processors), you might need to make sure you're building for linux/amd64, hence the `--platform linux/amd64` flag.
 
 Then visit [localhost:8080](http://localhost:8080)
 
