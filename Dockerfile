@@ -1,4 +1,4 @@
-FROM node:14
+FROM ghcr.io/drifting-in-space/node-duckdb-base
 
 # Copying package.json & installing node_modules directories
 # up top here because these are expensive calls and package.json
@@ -7,6 +7,11 @@ FROM node:14
 WORKDIR /app/server
 COPY server/package.json .
 COPY server/package-lock.json .
+# For now, the duckdb base image places the node_modules generated from the
+# duckdb install in /duckdb_node_modules. We need to move those to the workdir
+# node_modules just before we run npm install so we don't have to rebuild the
+# duckdb binaries.
+RUN mv /duckdb_node_modules ./node_modules
 RUN npm install
 RUN mv node_modules /app/node_modules
 WORKDIR /app/client
