@@ -1,4 +1,4 @@
-FROM ghcr.io/drifting-in-space/node-duckdb-base
+FROM ghcr.io/drifting-in-space/node-duckdb-base:sha-b572d87
 
 # Copying package.json & installing node_modules directories
 # up top here because these are expensive calls and package.json
