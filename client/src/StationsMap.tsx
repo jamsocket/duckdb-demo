@@ -1,25 +1,22 @@
 import React from 'react'
 import * as d3Geo from 'd3-geo'
 import './StationsMap.css'
+import { query, QueryReturn } from './query'
 import type {
   StationId,
   UserType,
   UserBirthYear,
   TripCountByDay,
-  StationMetadata,
-  EndStationsByStartStationResponse,
-  UserTypesByStartStationResponse,
-  HourlyTripCountByStartStationResponse,
-  UserBirthYearByStartStationResponse
-} from '../../server/api.types'
+  StationMetadata
+} from './query'
 
 const roads = require('./manhattan-roads')
 
-const STATIONS_DATA_PROPERTY_COUNT = 4
+const STATIONS_DATA_PROPERTY_COUNT = 1
 const STATIONS_OPACITY = 0.8
 const STATIONS_RADIUS = 4
 const TRANSITION_RATE = 0.15
-const CONNECTION_OPACITY = 0.015
+const CONNECTION_OPACITY = 0.005
 const TRIPS_CONNECTION_THRESHOLD = 4
 
 type StationData = {
@@ -33,12 +30,12 @@ type StationPercRendered = number
 type Connection = [StationId, StationId]
 
 type StationsMapProps = {
-  socket: any;
   stations: StationMetadata[];
   highlightedStation: StationId | null;
 }
 export class StationsMap extends React.Component<StationsMapProps> {
   responseCount = 0;
+  queryReturns: QueryReturn[] = [];
   // @ts-ignore
   stationsDataMap: Map<StationId, StationData> = (window.stationsDataMap = new Map());
   stationsPercRendered: Map<StationId, StationPercRendered> = new Map();
@@ -100,45 +97,41 @@ export class StationsMap extends React.Component<StationsMapProps> {
     this.drawBaseMap()
     this.startRenderLoop()
 
-    const socket = this.props.socket
     const stationsDataMap = this.stationsDataMap
 
     for (const station of this.props.stations) {
-      socket.emit('station-stats', station.id)
+      // wrapping this in a timeout so other parts of the application have a chance to send their queries, too
+      setTimeout(() => {
+        const queryReturn = query('tripCountsByEndStation', station.id)
+        this.queryReturns.push(queryReturn)
+        queryReturn.promise.then((res) => {
+          if (!stationsDataMap.has(res.stationId)) stationsDataMap.set(res.stationId, {})
+          const data = stationsDataMap.get(res.stationId)!
+          data.tripCountByEndStation = res.tripCountByEndStation
+          for (const endStationIdStr of Object.keys(data.tripCountByEndStation!)) {
+            const endStationId = Number(endStationIdStr)
+            const tripCount = data.tripCountByEndStation![endStationId]
+            if (tripCount <= TRIPS_CONNECTION_THRESHOLD) continue
+            this.connectionsSinceLastFrame.push([res.stationId, endStationId])
+          }
+        })
+        // query('tripCountsByUserType', station.id).then((res) => {
+        //   if (!stationsDataMap.has(res.stationId)) stationsDataMap.set(res.stationId, {})
+        //   const data = stationsDataMap.get(res.stationId)!
+        //   data.tripCountByUserType = res.tripCountByUserType
+        // })
+        // query('tripCountsByDayHour', station.id).then((res) => {
+        //   if (!stationsDataMap.has(res.stationId)) stationsDataMap.set(res.stationId, {})
+        //   const data = stationsDataMap.get(res.stationId)!
+        //   data.tripCountByDay = res.tripCountByDay
+        // })
+        // query('tripCountsByUserBirthYear', station.id).then((res) => {
+        //   if (!stationsDataMap.has(res.stationId)) stationsDataMap.set(res.stationId, {})
+        //   const data = stationsDataMap.get(res.stationId)!
+        //   data.tripCountByUserBirthYear = res.tripCountByUserBirthYear
+        // })
+      }, 0)
     }
-
-    socket.on('end-stations-by-start-station', (res: EndStationsByStartStationResponse) => {
-      if (!stationsDataMap.has(res.stationId)) stationsDataMap.set(res.stationId, {})
-      const data = stationsDataMap.get(res.stationId)!
-      const alreadyHasData = Boolean(data.tripCountByEndStation)
-      data.tripCountByEndStation = res.tripCountByEndStation
-      if (alreadyHasData) return
-      console.log('end-stations-by-start-station response queryTime', res.queryTime)
-      for (const endStationIdStr of Object.keys(data.tripCountByEndStation)) {
-        const endStationId = Number(endStationIdStr)
-        const tripCount = data.tripCountByEndStation[endStationId]
-        if (tripCount <= TRIPS_CONNECTION_THRESHOLD) continue
-        this.connectionsSinceLastFrame.push([res.stationId, endStationId])
-      }
-    })
-    socket.on('user-types-by-start-station', (res: UserTypesByStartStationResponse) => {
-      console.log('user-types-by-start-station response queryTime', res.queryTime)
-      if (!stationsDataMap.has(res.stationId)) stationsDataMap.set(res.stationId, {})
-      const data = stationsDataMap.get(res.stationId)!
-      data.tripCountByUserType = res.tripCountByUserType
-    })
-    socket.on('hourly-trip-count-by-start-station', (res: HourlyTripCountByStartStationResponse) => {
-      console.log('hourly-trip-count-by-start-station response queryTime', res.queryTime)
-      if (!stationsDataMap.has(res.stationId)) stationsDataMap.set(res.stationId, {})
-      const data = stationsDataMap.get(res.stationId)!
-      data.tripCountByDay = res.tripCountByDay
-    })
-    socket.on('user-birth-year-by-start-station', (res: UserBirthYearByStartStationResponse) => {
-      console.log('user-birth-year-by-start-station response queryTime', res.queryTime)
-      if (!stationsDataMap.has(res.stationId)) stationsDataMap.set(res.stationId, {})
-      const data = stationsDataMap.get(res.stationId)!
-      data.tripCountByUserBirthYear = res.tripCountByUserBirthYear
-    })
   }
 
   componentDidUpdate(prevProps: StationsMapProps) {
@@ -264,11 +257,8 @@ export class StationsMap extends React.Component<StationsMapProps> {
 
   componentWillUnmount() {
     this.stopRenderLoop()
-    const socket = this.props.socket
-    socket.off('end-stations-by-start-station')
-    socket.off('user-types-by-start-station')
-    socket.off('hourly-trip-count-by-start-station')
-    socket.off('user-birth-year-by-start-station')
+    for (const queryReturn of this.queryReturns) queryReturn.cancel()
+    this.queryReturns = []
   }
   render() {
     return (
