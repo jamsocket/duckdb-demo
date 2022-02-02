@@ -6,8 +6,8 @@
   "scripts": {
     "watch": "nodemon --watch . -e ts --exec npm run dev:start",
     "start": "SERVER_PORT=8080 node .",
+    "container:start": "npm run build-db && npm start",
     "dev:start": "npm run build && npm start",
-    "download-data": "mkdir -p data && curl https://storage.googleapis.com/jamsocket-demo-data/2018-2020-citibike-trips.csv.gz > data/2018-2020-citibike-trips.csv.gz",
     "build-db": "node scripts/build-db.js",
     "build": "rm -rf dist/* && tsc && cp dbConfig.js dist/",
     "tsc": "tsc",

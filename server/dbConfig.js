@@ -7,6 +7,7 @@ module.exports = {
   // TODO: make this accept arbitrary URLs or S3 buckets?
   importPath: 'data/2018-2020-citibike-trips.csv.gz',
   // importPath: 'data/202005-citibike-tripdata-sample.csv',
+  dataOrigin: 'https://storage.googleapis.com/jamsocket-demo-data/',
   // this is the name to give to the table the data is loaded into
   tableName: 'citibike_trips',
   // this is an ordered list of columns and their datatypes for the CSV
