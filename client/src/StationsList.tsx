@@ -58,12 +58,6 @@ class Station extends React.Component<StationProps, StationState> {
       this.state.data.tripCountByEndStation = res.tripCountByEndStation
       this.setState({ data: this.state.data })
     })
-    // -----------------------------------------------------------------------
-    // START HERE TOMORROW!
-
-    // FIGURE OUT WHY THE ABOVE QUERY IS NOT RESOLVING!
-
-    // -----------------------------------------------------------------------
     // query('tripCountsByUserType', this.props.metadata.id).then((res) => {
     //   // eslint-disable-next-line react/no-direct-mutation-state
     //   this.state.data.tripCountByUserType = res.tripCountByUserType
