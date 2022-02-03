@@ -2,6 +2,7 @@ import { io } from 'socket.io-client'
 
 // FIXME: WE SHOULDN'T STORE tablename in two places
 // const config = require('../../server/dbConfig.js')
+const tableName = 'citibike_trips' // config.tableName
 
 type QueryName = 
   'totalTrips' |
@@ -17,16 +18,13 @@ type CacheItem = {
   queryStr: string;
   responseTs: number | null;
   isFetching: boolean;
-  callbacks: Array<(response: any) => void>;
+  callbacks: Array<(transformedResponse: any) => void>;
   response: QueryResponse<any> | null;
-  transformedResponse: any;
 }
 
 type QueryResponse<ResultT> = {
   queryStr: string;
   queryTime: number;
-  queryName: QueryName;
-  queryArgs: any[];
   result: ResultT;
 }
 
@@ -62,9 +60,7 @@ type UserBirthYearByStartStationDB = { birth_year: number; 'count_star()': numbe
 // @ts-ignore
 const socket = (window.socket = io())
 const cache = new Map<string, CacheItem>()
-
-// FIX THIS
-const tableName = 'citibike_trips' // config.tableName
+const transformedResponseCache = new Map<string, any>()
 
 const queries: Record<QueryName, QueryDef> = {
   totalTrips: {
@@ -158,27 +154,23 @@ function createCacheItem (queryStr: string): CacheItem {
     responseTs: null,
     isFetching: false,
     callbacks: [],
-    response: null,
-    transformedResponse: null
+    response: null
   }
 }
 
 socket.on('query-response', (response: QueryResponse<any>) => {
   if (!cache.has(response.queryStr)) cache.set(response.queryStr, createCacheItem(response.queryStr))
   const cacheitem = cache.get(response.queryStr)!
-  const transformedResponse = queries[response.queryName].transformResponse(response.result, ...response.queryArgs)
   cacheitem.responseTs = Date.now()
   cacheitem.response = response
-  cacheitem.transformedResponse = transformedResponse
   if (!cacheitem.isFetching) {
     // what to do with callbacks? for now, just ignore them
     return
   }
-  console.log(response.queryName, response.queryTime)
   cacheitem.isFetching = false
   if (cacheitem.callbacks.length) {
     for (const cb of cacheitem.callbacks) {
-      cb(transformedResponse)
+      cb(cacheitem.response)
     }
     cacheitem.callbacks.length = 0
   }
@@ -193,18 +185,22 @@ export function query (queryName: QueryName, ...queryArgs: Array<any>): QueryRet
       if (!cache.has(queryStr)) cache.set(queryStr, createCacheItem(queryStr))
       const cacheitem = cache.get(queryStr)!
       if (cacheitem.isFetching === false && cacheitem.response !== null) {
-        resolve(cacheitem.transformedResponse)
+        let transformedResponse = transformedResponseCache.get(queryStr) || queries[queryName].transformResponse(cacheitem.response.result, ...queryArgs)
+        transformedResponseCache.set(queryStr, transformedResponse)
+        resolve(transformedResponse)
         return
       }
   
-      cacheitem.callbacks.push((transformedResponse) => {
+      cacheitem.callbacks.push((response) => {
+        let transformedResponse = transformedResponseCache.get(queryStr) || queries[queryName].transformResponse(response.result, ...queryArgs)
+        transformedResponseCache.set(queryStr, transformedResponse)
         if (!isCancelled) resolve(transformedResponse)
       })
       if (cacheitem.isFetching) {
         return
       }
       cacheitem.isFetching = true
-      socket.emit('query', queryStr, queryName, queryArgs)
+      socket.emit('query', queryStr)
     }),
     cancel: () => isCancelled = true
   }

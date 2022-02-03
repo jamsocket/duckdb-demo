@@ -7,27 +7,10 @@ const { tableName } = require('./dbConfig.js')
 const { DB_DIR, DB_FILENAME } = require('../constants')
 const localDBPath = path.join('.', DB_DIR, DB_FILENAME)
 
-// TODO: refactor query.ts so the server doesn't need to handle QueryNames
-// or queryArgs - it doesn't use them and doesn't need to know about them.
-// They're only used by the client so it can transform the response when it's
-// returned. Possible solution - responses are cached as-is without transformation
-// when they are received, but transformed responses are cached on read (when
-// query() is called)
-type QueryName = 
-  'totalTrips' |
-  'tripsTimerange' |
-  'maxHourlyTrips' |
-  'stationsMetadata' |
-  'tripCountsByEndStation' |
-  'tripCountsByUserType' |
-  'tripCountsByDayHour' |
-  'tripCountsByUserBirthYear'
-
+// TODO: share QueryResponse type with FE
 type QueryResponse<ResultT> = {
   queryStr: string;
   queryTime: number;
-  queryName: QueryName;
-  queryArgs: any[];
   result: ResultT;
 }
 
@@ -51,7 +34,7 @@ io.on('connection', (socket: any) => {
   const idx = connectionsCount++
   console.log((performance.now() - startTime) | 0, 'CONNECTED TO CLIENT', idx)
 
-  socket.on('query', (queryStr: string, queryName: QueryName, queryArgs: any[]) => {
+  socket.on('query', (queryStr: string) => {
     console.log((performance.now() - startTime) | 0, 'request for:', queryStr)
     const dbCallPlaced = performance.now()
     db.all(queryStr, (err: any, result: any) => {
@@ -62,8 +45,6 @@ io.on('connection', (socket: any) => {
       }
       const response: QueryResponse<any> = {
         queryStr: queryStr,
-        queryArgs: queryArgs,
-        queryName: queryName,
         queryTime: performance.now() - dbCallPlaced,
         result: result
       }
