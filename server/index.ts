@@ -2,7 +2,10 @@ const path = require('path')
 const { Server } = require('socket.io')
 const express = require('express')
 const duckdb = require('duckdb')
-const { localDBPath, tableName } = require('./dbConfig.js')
+const { tableName } = require('./dbConfig.js')
+
+const { DB_DIR, DB_FILENAME } = require('../constants')
+const localDBPath = path.join('.', DB_DIR, DB_FILENAME)
 
 // TODO: pull this into a shared types file
 type QueryName = 

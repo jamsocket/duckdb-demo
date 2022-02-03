@@ -3,7 +3,6 @@ node_modules/
 .pnp.js
 client/.pnp
 
-server/data/
 server/dist/
 server/db
 client/build
