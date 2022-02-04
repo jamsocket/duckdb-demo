@@ -10,7 +10,7 @@ import type {
   StationMetadata
 } from './query'
 
-const roads = require('./manhattan-roads')
+const roads = require('./manhattan-roads.json')
 
 const STATIONS_DATA_PROPERTY_COUNT = 1
 const STATIONS_OPACITY = 0.8
