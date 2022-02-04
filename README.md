@@ -33,9 +33,7 @@ Then visit [localhost:8080](http://localhost:8080)
 
 ## Data
 
-This demo uses a large dataset by default (about 2.2GB gzipped) which is downloaded as part of the
-`npm run build-db` script. If you would like to avoid downloading this larger dataset, you can use
-the smaller, sampled dataset that's been included in this repo at `server/data/citibike-trips-sample.csv.gz`. To use this local dataset, you need to edit `server/dbConfig.js` by setting `"data/citibike-trips-sample.csv.gz"` as the `importPath`. Note: whenever the `importPath` is changed, you'll want to delete all `server/db/local*` files and then rerun `npm run build-db` from the `server` directory.
+This demo uses a large dataset by default which is downloaded as part of the `npm run build-db` script. If you would like to avoid downloading this larger dataset, you can use the smaller, sampled dataset that's been included in this repo at `server/data/citibike-trips-sample.csv.gz`. To use this local dataset, you need to edit `server/dbConfig.js` by setting `"data/citibike-trips-sample.csv.gz"` as the `importPath`. Note: whenever the `importPath` is changed, you'll want to delete all `server/db/local*` files and then rerun `npm run build-db` from the `server` directory.
 
 -----
 
