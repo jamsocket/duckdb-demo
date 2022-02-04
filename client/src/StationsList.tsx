@@ -1,19 +1,16 @@
 import React from 'react';
 import './StationsList.css';
+import { query, QueryReturn } from './query'
 import type {
   StationId,
   UserType,
   UserBirthYear,
   TripCountByDay,
   StationMetadata,
-  DayOfWeek,
-  EndStationsByStartStationResponse,
-  UserTypesByStartStationResponse,
-  HourlyTripCountByStartStationResponse,
-  UserBirthYearByStartStationResponse
-} from '../../server/api.types'
+  DayOfWeek
+} from './query'
 
-const STATIONS_DATA_PROPERTY_COUNT = 4
+const STATIONS_DATA_PROPERTY_COUNT = 2
 type StationData = {
   tripCountByEndStation?: Record<StationId, number>;
   tripCountByUserType?: Record<UserType, number>
@@ -22,12 +19,11 @@ type StationData = {
 }
 
 type StationsListProps = {
-  socket: any;
   stationsMap: Map<StationId, StationMetadata>;
   maxHourlyTrips: number;
   onStationHover: (stationId: StationId | null) => void
 }
-export function StationsList({ stationsMap, socket, onStationHover, maxHourlyTrips }: StationsListProps) {
+export function StationsList({ stationsMap, onStationHover, maxHourlyTrips }: StationsListProps) {
   const stations = Array.from(stationsMap.values())
   return (
     <ul className="Stations" onMouseLeave={() => onStationHover(null)}>
@@ -36,7 +32,6 @@ export function StationsList({ stationsMap, socket, onStationHover, maxHourlyTri
           key={station.id}
           metadata={station}
           maxHourlyTrips={maxHourlyTrips}
-          socket={socket}
           onMouseEnter={() => onStationHover(station.id)}
           onMouseLeave={() => onStationHover(null)}
         />
@@ -48,50 +43,43 @@ export function StationsList({ stationsMap, socket, onStationHover, maxHourlyTri
 type StationProps = {
   metadata: StationMetadata;
   maxHourlyTrips: number;
-  socket: any;
   onMouseEnter: () => void;
   onMouseLeave: () => void;
 }
 type StationState = { data: StationData }
 class Station extends React.Component<StationProps, StationState> {
-  constructor(props: StationProps) {
-    super(props)
-    this.state = { data: {} }
-  }
+  state: StationState = { data: {} }
+  queryReturns: QueryReturn[] = []
   componentDidMount() {
-    const socket = this.props.socket
-    socket.emit('station-stats', this.props.metadata.id)
-    socket.on('end-stations-by-start-station', (res: EndStationsByStartStationResponse) => {
-      if (this.props.metadata.id !== res.stationId) return
+    const endStationQueryReturn = query('tripCountsByEndStation', this.props.metadata.id)
+    this.queryReturns.push(endStationQueryReturn)
+    endStationQueryReturn.promise.then((res) => {
       // eslint-disable-next-line react/no-direct-mutation-state
       this.state.data.tripCountByEndStation = res.tripCountByEndStation
       this.setState({ data: this.state.data })
     })
-    socket.on('user-types-by-start-station', (res: UserTypesByStartStationResponse) => {
-      if (this.props.metadata.id !== res.stationId) return
-      // eslint-disable-next-line react/no-direct-mutation-state
-      this.state.data.tripCountByUserType = res.tripCountByUserType
-      this.setState({ data: this.state.data })
-    })
-    socket.on('hourly-trip-count-by-start-station', (res: HourlyTripCountByStartStationResponse) => {
-      if (this.props.metadata.id !== res.stationId) return
+    // query('tripCountsByUserType', this.props.metadata.id).then((res) => {
+    //   // eslint-disable-next-line react/no-direct-mutation-state
+    //   this.state.data.tripCountByUserType = res.tripCountByUserType
+    //   this.setState({ data: this.state.data })
+    // })
+
+    const dayHourQueryReturn = query('tripCountsByDayHour', this.props.metadata.id)
+    this.queryReturns.push(dayHourQueryReturn)
+    dayHourQueryReturn.promise.then((res) => {
       // eslint-disable-next-line react/no-direct-mutation-state
       this.state.data.tripCountByDay = res.tripCountByDay
       this.setState({ data: this.state.data })
     })
-    socket.on('user-birth-year-by-start-station', (res: UserBirthYearByStartStationResponse) => {
-      if (this.props.metadata.id !== res.stationId) return
-      // eslint-disable-next-line react/no-direct-mutation-state
-      this.state.data.tripCountByUserBirthYear = res.tripCountByUserBirthYear
-      this.setState({ data: this.state.data })
-    })
+    // query('tripCountsByUserBirthYear', this.props.metadata.id).then((res) => {
+    //   // eslint-disable-next-line react/no-direct-mutation-state
+    //   this.state.data.tripCountByUserBirthYear = res.tripCountByUserBirthYear
+    //   this.setState({ data: this.state.data })
+    // })
   }
   componentWillUnmount() {
-    const socket = this.props.socket
-    socket.off('end-stations-by-start-station')
-    socket.off('user-types-by-start-station')
-    socket.off('hourly-trip-count-by-start-station')
-    socket.off('user-birth-year-by-start-station')
+    for (const queryReturn of this.queryReturns) queryReturn.cancel()
+    this.queryReturns = []
   }
   render() {
     const { metadata, maxHourlyTrips } = this.props

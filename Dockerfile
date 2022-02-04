@@ -32,9 +32,8 @@ RUN mv /app/node_modules-client ./node_modules
 WORKDIR /app/client
 RUN npm run build
 WORKDIR /app/server
-RUN npm run buildDB
 RUN npm run build
 
 EXPOSE 8080
 WORKDIR /app/server
-CMD ["npm", "start"]
+CMD ["npm", "run", "container:start"]

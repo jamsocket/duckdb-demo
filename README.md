@@ -13,7 +13,10 @@ From `/server` (in separate tab):
 
 ```sh
 $ npm install
-$ npm run buildDB
+# warning: `npm run build-db` may cause a large amount of data to be downloaded. If you
+# are on a slow network, you might prefer to use a smaller sampled dataset. See the section
+# below titled `Data` to learn more
+$ npm run build-db
 $ npm run watch
 ```
 
@@ -28,7 +31,9 @@ $ docker run -dp 8080:8080 duckdb-demo
 
 Then visit [localhost:8080](http://localhost:8080)
 
-**Note:** you might run into memory issues with building DuckDB's binaries in the container when running `docker build`. It's recommended you up the memory settings for Docker. With Docker Desktop, you can do this in the preferences panel's "Resources" tab.
+## Data
+
+This demo uses a large dataset by default which is downloaded as part of the `npm run build-db` script. If you would like to avoid downloading this larger dataset, you can use the smaller, sampled dataset that's been included in this repo at `server/data/citibike-trips-sample.csv.gz`. To use this local dataset, you need to edit `server/dbConfig.js` by setting `"data/citibike-trips-sample.csv.gz"` as the `importPath`. Note: whenever the `importPath` is changed, you'll want to delete all `server/db/local*` files and then rerun `npm run build-db` from the `server` directory.
 
 -----
 
@@ -45,7 +50,10 @@ From `/server`:
 
 ```sh
 $ npm install
-$ npm run buildDB
+# warning: `npm run build-db` may cause a large amount of data to be downloaded. If you
+# are on a slow network, you might prefer to use a smaller sampled dataset. See the section
+# titled `Data` to learn more
+$ npm run build-db
 $ npm run build
 ```
 
@@ -56,5 +64,3 @@ From `/server`:
 ```sh
 $ npm start
 ```
-
-To run in debug mode, simply hit F5

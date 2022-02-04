@@ -46,7 +46,7 @@
 
 .TripsVolume {
   height: 100%;
-  width: calc(100% - 70px); /* 100% minus the width+margin of the TripsCount */
+  width: calc(100% - 85px); /* 100% minus the width+margin of the TripsCount */
   opacity: 0;
   transition: opacity 300ms linear 500ms;
 }
@@ -62,7 +62,7 @@
 
 .TripsCount {
   height: 100%;
-  width: 70px;
+  width: 85px;
   text-align: right;
   opacity: 0;
   transition: opacity 300ms linear 500ms;

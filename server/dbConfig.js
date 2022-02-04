@@ -1,15 +1,11 @@
 module.exports = {
-  // this is the path to the local db (this is internal config and does
-  // not need to be edited by user)
-  localDBPath: 'db/local.db',
-  // this is the path to the original data CSV to be initially loaded
-  // into the duckdb instance when the container is built
-  // TODO: make this accept arbitrary URLs or S3 buckets?
-  importPath: 'data/202005-citibike-tripdata.csv.gz',
-  // importPath: 'data/202005-citibike-tripdata-sample.csv',
-  // this is the name to give to the table the data is loaded into
+  // `importPath` is the path to the original data CSV to be initially loaded
+  // into the duckdb instance when the container is built. It may either be a URI (http or https)
+  // or a filepath relative to the `server` directory.
+  importPath: 'https://storage.googleapis.com/jamsocket-demo-data/citibike-25M.csv.gz', // or 'https://storage.googleapis.com/jamsocket-demo-data/2018-2020-citibike-trips.csv.gz',
+  // `tableName` is the name to give to the db table that the data is loaded into
   tableName: 'citibike_trips',
-  // this is an ordered list of columns and their datatypes for the CSV
+  // `schema` is an ordered list of columns and their datatypes for the CSV
   // that's inserted into the table
   schema: [
     ['duration', 'INT'],

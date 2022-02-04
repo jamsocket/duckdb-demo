@@ -1,17 +1,10 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
-import { io } from 'socket.io-client';
 import { StationsList } from './StationsList'
 import { StationsMap } from './StationsMap'
 import './index.css';
-import type {
-  StationId,
-  StationMetadata,
-  TotalTripsResponse,
-  MaxHourlyTripsResponse,
-  TripsTimerangeResponse,
-  StationsMetadataResponse
-} from '../../server/api.types'
+import type { StationId, StationMetadata } from './query'
+import { query, QueryReturn } from './query'
 
 type AppProps = {}
 type AppState = {
@@ -23,37 +16,41 @@ type AppState = {
 }
 
 class App extends React.Component<AppProps, AppState> {
-  socket: any;
-
-  constructor(props: AppProps) {
-    super(props)
-    // @ts-ignore
-    this.socket = (window.socket = io())
-    this.state = {
-      stationsMap: new Map(),
-      totalTrips: null,
-      tripsTimerange: null,
-      highlightedStation: null,
-      maxHourlyTrips: null
-    }
+  state: AppState = {
+    stationsMap: new Map(),
+    totalTrips: null,
+    tripsTimerange: null,
+    highlightedStation: null,
+    maxHourlyTrips: null
   }
+  queryReturns: QueryReturn[] = []
 
   componentDidMount() {
-    const socket = this.socket
-    socket.on('total-trips', (res: TotalTripsResponse) => {
+    const totalTripsQueryReturn = query('totalTrips')
+    this.queryReturns.push(totalTripsQueryReturn)
+    totalTripsQueryReturn.promise.then((res) => {
       this.setState({ totalTrips: res.totalTrips })
     })
-    socket.on('trips-timerange', (res: TripsTimerangeResponse) => {
+
+    const tripsTimerangeQueryReturn = query('tripsTimerange')
+    this.queryReturns.push(tripsTimerangeQueryReturn)
+    tripsTimerangeQueryReturn.promise.then((res) => {
       this.setState({
         tripsTimerange: [new Date(res.tripsTimerange[0]), new Date(res.tripsTimerange[1])]
       })
     })
-    socket.on('max-hourly-trips', (res: MaxHourlyTripsResponse) => {
+
+    const maxHourlyTripsQueryReturn = query('maxHourlyTrips')
+    this.queryReturns.push(maxHourlyTripsQueryReturn)
+    maxHourlyTripsQueryReturn.promise.then((res) => {
       this.setState({ maxHourlyTrips: res.maxHourlyTrips })
     })
-    socket.on('stations-metadata', (res: StationsMetadataResponse) => {
+
+    const stationsMetadataQueryReturn = query('stationsMetadata')
+    this.queryReturns.push(stationsMetadataQueryReturn)
+    stationsMetadataQueryReturn.promise.then((res) => {
       const { stationsMap } = this.state
-      for (const station of res) {
+      for (const station of res.stations) {
         // Note: this overwrites any stations that were already set in the stationsMap
         // This can occur because the stations-metadata response includes duplicates
         // where a station's lnglat has changed slightly
@@ -61,15 +58,10 @@ class App extends React.Component<AppProps, AppState> {
       }
       this.setState({ stationsMap })
     })
-
-    socket.emit('total-trips')
-    socket.emit('trips-timerange')
-    socket.emit('max-hourly-trips')
-    socket.emit('stations-metadata')
   }
   componentWillUnmount() {
-    this.socket.off('total-trips')
-    this.socket.off('stations-metadata')
+    for (const queryReturn of this.queryReturns) queryReturn.cancel()
+    this.queryReturns = []
   }
   render() {
     const { stationsMap, tripsTimerange, totalTrips, maxHourlyTrips } = this.state
@@ -94,7 +86,6 @@ class App extends React.Component<AppProps, AppState> {
               <div className="Map-container">
                 <StationsMap
                   stations={stations}
-                  socket={this.socket}
                   highlightedStation={this.state.highlightedStation}
                 />
               </div>
@@ -103,7 +94,6 @@ class App extends React.Component<AppProps, AppState> {
               <StationsList
                 maxHourlyTrips={maxHourlyTrips}
                 stationsMap={stationsMap}
-                socket={this.socket}
                 onStationHover={(id) => this.setState({ highlightedStation: id })}
               />
             </div>
