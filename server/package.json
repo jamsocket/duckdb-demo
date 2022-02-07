@@ -5,7 +5,7 @@
   "main": "dist/index.js",
   "scripts": {
     "watch": "nodemon --watch . -e ts --exec npm run dev:start",
-    "start": "SERVER_PORT=8080 node .",
+    "start": "node .",
     "container:start": "npm run build-db && npm start",
     "dev:start": "npm run build && npm start",
     "build-db": "node scripts/build-db.js",
@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "d3-dsv": "^3.0.1",
+    "dotenv": "^16.0.0",
     "duckdb": "0.3.1",
     "express": "4.17.2",
     "minimist": "^1.2.5",
