@@ -3,6 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "main": "dist/index.js",
+  "license": "MIT",
   "scripts": {
     "watch": "nodemon --watch . -e ts --exec npm run dev:start",
     "start": "node .",
