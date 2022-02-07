@@ -2,8 +2,12 @@ const path = require('path')
 const { Server } = require('socket.io')
 const express = require('express')
 const duckdb = require('duckdb')
-const { tableName } = require('./dbConfig.js')
+require('dotenv').config({
+  path: path.resolve(process.cwd(), '.env.default'),
+  override: false
+})
 
+const { tableName } = require('./dbConfig.js')
 const { DB_DIR, DB_FILENAME } = require('../constants')
 const localDBPath = path.join('.', DB_DIR, DB_FILENAME)
 

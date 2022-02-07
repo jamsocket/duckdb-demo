@@ -2,14 +2,20 @@ const fs = require('fs')
 const path = require('path')
 const { exec } = require('child_process')
 const duckdb = require('duckdb')
-const { DB_DIR, DB_FILENAME } = require('../constants')
+require('dotenv').config({
+  path: path.resolve(process.cwd(), '.env.default'),
+  override: false
+})
 
-const { tableName, importPath, schema } = require('../dbConfig.js')
+const { DB_DIR, DB_FILENAME } = require('../constants')
+const { tableName, schema } = require('../dbConfig.js')
+
+const DEMO_DATA_SOURCE = process.env.DEMO_DATA_SOURCE
 
 const dbPath = path.join(__dirname, '..', DB_DIR, DB_FILENAME)
 const dbDir = path.dirname(dbPath)
-const dataFilename = path.basename(importPath)
-const dataPath = isUri(importPath) ? path.join(__dirname, '..', DB_DIR, dataFilename) : importPath
+const dataFilename = path.basename(DEMO_DATA_SOURCE)
+const dataPath = isUri(DEMO_DATA_SOURCE) ? path.join(__dirname, '..', DB_DIR, dataFilename) : DEMO_DATA_SOURCE
 const dataDir = path.dirname(dataPath)
 
 fs.mkdirSync(dbDir, { recursive: true })
@@ -18,7 +24,7 @@ fs.mkdirSync(dataDir, { recursive: true })
 if (fs.existsSync(dbPath)) {
   console.log(`build-db.js: database already exists: ${dbPath}`)
 } else {
-  fetchData(importPath, dataPath)
+  fetchData(DEMO_DATA_SOURCE, dataPath)
     .then(createDatabase)
     .catch(err => {
       console.error(err)
@@ -34,7 +40,7 @@ function fetchData(dataUri, dataPath) {
     } else {
       console.log(`build-db.js: data not found at path: ${dataPath}`)
       if (!isUri(dataUri)) {
-        console.warn(`build-db.js: unable to cURL importPath: ${importPath}`)
+        console.warn(`build-db.js: unable to cURL DEMO_DATA_SOURCE: ${DEMO_DATA_SOURCE}`)
         reject()
         return
       }
