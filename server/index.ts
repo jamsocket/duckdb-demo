@@ -9,8 +9,6 @@ require('dotenv').config({
   override: false
 })
 
-const { DB_DIR } = require('../constants')
-
 // TODO: share tableName and QueryResponse type with FE
 const tableName = 'citibike_trips'
 type QueryResponse<ResultT> = {
@@ -19,6 +17,7 @@ type QueryResponse<ResultT> = {
   result: ResultT;
 }
 
+const DB_DIR = 'db'
 const DEMO_DATA_SOURCE = process.env.DEMO_DATA_SOURCE
 
 const dataFilename = path.basename(DEMO_DATA_SOURCE)
@@ -43,7 +42,7 @@ function startServer(db: typeof duckdb.Database) {
   app.use(express.static(path.join(__dirname, '../../client/build')))
 
   const server = app.listen(port, () => {
-    console.log(`server started at http://localhost:${port}`)
+    console.log(`server started at http://0.0.0.0:${port}`)
   });
 
   const io = new Server(server)
