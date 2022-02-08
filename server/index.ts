@@ -116,10 +116,18 @@ function createDatabase() {
       console.log(`duckdb database created in ${Date.now() - dbLoadStart} ms`)
       db.all('SET access_mode=READ_ONLY', (err: Error) => {
         if (err) {
-          console.error('duckdb error creating table:', err)
+          console.error('duckdb error setting to read only:', err)
           reject(err)
         }
         console.log('duckdb database set to read only')
+        db.all('SELECT * FROM duckdb_settings()', (err: Error, response: any) => {
+          if (err) {
+            console.error('duckdb error reading settings:', err)
+            reject(err)
+          }
+          const settings = Object.fromEntries(response.map((setting: any) => [setting.name, setting.value]))
+          console.log('duckdb database running with settings:', settings)
+        })
         resolve(db)
       })
     })
