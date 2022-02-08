@@ -51,11 +51,6 @@
   transition: opacity 300ms linear 500ms;
 }
 
-.TripsVolume canvas {
-  height: 100%;
-  width: 100%;
-}
-
 .Stations li.isLoaded .TripsVolume {
   opacity: 1;
 }
