@@ -114,7 +114,14 @@ function createDatabase() {
         reject(err)
       }
       console.log(`duckdb database created in ${Date.now() - dbLoadStart} ms`)
-      resolve(db)
+      db.all('SET access_mode=READ_ONLY', (err: Error) => {
+        if (err) {
+          console.error('duckdb error creating table:', err)
+          reject(err)
+        }
+        console.log('duckdb database set to read only')
+        resolve(db)
+      })
     })
   })
 }
