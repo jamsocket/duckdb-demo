@@ -58,11 +58,6 @@ class Station extends React.Component<StationProps, StationState> {
       this.state.data.tripCountByEndStation = res.tripCountByEndStation
       this.setState({ data: this.state.data })
     })
-    // query('tripCountsByUserType', this.props.metadata.id).then((res) => {
-    //   // eslint-disable-next-line react/no-direct-mutation-state
-    //   this.state.data.tripCountByUserType = res.tripCountByUserType
-    //   this.setState({ data: this.state.data })
-    // })
 
     const dayHourQueryReturn = query('tripCountsByDayHour', this.props.metadata.id)
     this.queryReturns.push(dayHourQueryReturn)
@@ -71,11 +66,6 @@ class Station extends React.Component<StationProps, StationState> {
       this.state.data.tripCountByDay = res.tripCountByDay
       this.setState({ data: this.state.data })
     })
-    // query('tripCountsByUserBirthYear', this.props.metadata.id).then((res) => {
-    //   // eslint-disable-next-line react/no-direct-mutation-state
-    //   this.state.data.tripCountByUserBirthYear = res.tripCountByUserBirthYear
-    //   this.setState({ data: this.state.data })
-    // })
   }
   componentWillUnmount() {
     for (const queryReturn of this.queryReturns) queryReturn.cancel()

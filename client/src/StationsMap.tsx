@@ -115,21 +115,6 @@ export class StationsMap extends React.Component<StationsMapProps> {
             this.connectionsSinceLastFrame.push([res.stationId, endStationId])
           }
         })
-        // query('tripCountsByUserType', station.id).then((res) => {
-        //   if (!stationsDataMap.has(res.stationId)) stationsDataMap.set(res.stationId, {})
-        //   const data = stationsDataMap.get(res.stationId)!
-        //   data.tripCountByUserType = res.tripCountByUserType
-        // })
-        // query('tripCountsByDayHour', station.id).then((res) => {
-        //   if (!stationsDataMap.has(res.stationId)) stationsDataMap.set(res.stationId, {})
-        //   const data = stationsDataMap.get(res.stationId)!
-        //   data.tripCountByDay = res.tripCountByDay
-        // })
-        // query('tripCountsByUserBirthYear', station.id).then((res) => {
-        //   if (!stationsDataMap.has(res.stationId)) stationsDataMap.set(res.stationId, {})
-        //   const data = stationsDataMap.get(res.stationId)!
-        //   data.tripCountByUserBirthYear = res.tripCountByUserBirthYear
-        // })
       }, 0)
     }
   }
