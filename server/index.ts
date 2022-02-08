@@ -54,10 +54,10 @@ function startServer(db: typeof duckdb.Database) {
     console.log((performance.now() - startTime) | 0, 'CONNECTED TO CLIENT', idx)
 
     socket.on('query', (queryStr: string) => {
-      console.log((performance.now() - startTime) | 0, 'request for:', queryStr)
+      // console.log((performance.now() - startTime) | 0, 'request for:', queryStr)
       const dbCallPlaced = performance.now()
       db.all(queryStr, (err: any, result: any) => {
-        console.log((performance.now() - startTime) | 0, 'db response for:', queryStr)
+        // console.log((performance.now() - startTime) | 0, 'db response for:', queryStr)
         if (err) {
           // TODO: send error to client?
           console.warn(`duckdb: error from ${queryStr}`, err)
