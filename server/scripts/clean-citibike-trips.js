@@ -36,6 +36,8 @@ import('d3-dsv').then(({ csvParseRows }) => {
   rl.on('line', (input) => {
     if (!input || firstLine) {
       firstLine = false
+      process.stdout.write(input)
+      process.stdout.write('\n')
       return
     }
     const vals = csvParseRows(input)[0]

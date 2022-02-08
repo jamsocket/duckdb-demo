@@ -13,49 +13,52 @@
 // 'bikeid', // 31956
 // 'usertype', // "Subscriber"
 // 'birth year', // 1992
-// 'gender' // 1
-
-// [
-//   ['duration', 'INT'],
-//   ['start_time', 'TIMESTAMP'],
-//   ['stop_time', 'TIMESTAMP'],
-//   ['start_station_id', 'INT'],
-//   ['start_station_name', 'VARCHAR'],
-//   ['start_station_latitude', 'FLOAT4'],
-//   ['start_station_longitude', 'FLOAT4'],
-//   ['end_station_id', 'INT'],
-//   ['end_station_name', 'VARCHAR'],
-//   ['end_station_latitude', 'FLOAT4'],
-//   ['end_station_longitude', 'FLOAT4'],
-//   ['bike_id', 'INT'],
-//   ['user_type', 'VARCHAR'],
-//   ['birth_year', 'INT'],
-//   ['gender', 'INT']
-// ]
 
 const path = require('path')
-const fs = require('fs')
 const readline = require('readline')
-import('d3-dsv').then(({ csvParseRows }) => {
-  // const { csvParseRows } = require('d3-dsv')
+const parquet = require('parquetjs')
+
+import('d3-dsv').then(async ({ csvParseRows }) => {
+  const schema = new parquet.ParquetSchema({
+    'duration': { type: 'INT32' },
+    'start_time': { type: 'TIMESTAMP_MILLIS' },
+    'stop_time': { type: 'TIMESTAMP_MILLIS' },
+    'start_station_id': { type: 'INT32' },
+    'start_station_name': { type: 'UTF8' },
+    'start_station_latitude': { type: 'FLOAT' },
+    'start_station_longitude': { type: 'FLOAT' },
+    'end_station_id': { type: 'INT32' },
+    'end_station_name': { type: 'UTF8' },
+    'end_station_latitude': { type: 'FLOAT' },
+    'end_station_longitude': { type: 'FLOAT' },
+    'bike_id': { type: 'INT32' },
+    'user_type': { type: 'UTF8' },
+    'birth_year': { type: 'INT32' }
+  });
+
   const argv = require('minimist')(process.argv.slice(2))
 
   const rl = readline.createInterface({ input: process.stdin })
 
-  if (argv.h || argv.help) {
+  if (argv.h || argv.help || !argv.out) {
     console.log(
-      `Usage: cat PATH_TO_CITIBIKE_TRIPS.csv | ${process.argv0} ${path.basename(process.argv[1])}`
+      `Usage: cat PATH_TO_CITIBIKE_TRIPS.csv | ${process.argv0} ${path.basename(process.argv[1])} --out path/to/output.parquet`
     )
     process.exit(0)
   }
 
-  let firstLine = true
+  const outFile = path.resolve(process.cwd(), argv.out)
+  const writer = await parquet.ParquetWriter.openFile(schema, outFile)
 
-  rl.on('line', (input) => {
+  let rows = 0
+  let firstLine = true
+  for await (const input of rl) {
     if (!input || firstLine) {
       firstLine = false
-      return
+      continue
     }
+    rows += 1
+
     const vals = csvParseRows(input)[0]
     const [
       tripduration,
@@ -71,27 +74,27 @@ import('d3-dsv').then(({ csvParseRows }) => {
       end_station_longitude,
       bikeid,
       usertype,
-      birth_year,
-      gender
+      birth_year
     ] = vals
 
-    // all these should be castable to Number
-    if (!Number.isFinite(Number(tripduration))) return
-    if (!Number.isFinite(Number(start_station_id))) return
-    if (!Number.isFinite(Number(start_station_latitude))) return
-    if (!Number.isFinite(Number(start_station_longitude))) return
-    if (!Number.isFinite(Number(end_station_id))) return
-    if (!Number.isFinite(Number(end_station_latitude))) return
-    if (!Number.isFinite(Number(end_station_longitude))) return
-    if (!Number.isFinite(Number(bikeid))) return
-    if (!Number.isFinite(Number(birth_year))) return
-    if (!Number.isFinite(Number(gender))) return
-
-    const hasBadValues = vals.some(v => {
-      return Number.isNaN(v) || v === null || v === '' || v === undefined || v === 'NULL'
+    await writer.appendRow({
+      duration: tripduration,
+      start_time: new Date(starttime),
+      stop_time: new Date(stoptime),
+      start_station_id,
+      start_station_name,
+      start_station_latitude,
+      start_station_longitude,
+      end_station_id,
+      end_station_name,
+      end_station_latitude,
+      end_station_longitude,
+      bike_id: bikeid,
+      user_type: usertype,
+      birth_year
     })
-    if (hasBadValues) return
-    process.stdout.write(input)
-    process.stdout.write('\n')
-  })
+  }
+
+  await writer.close()
+  console.log('All done! Row count:', rows)
 })

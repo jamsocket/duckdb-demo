@@ -1,4 +1,5 @@
-FROM ghcr.io/drifting-in-space/node-duckdb-base:sha-b572d87
+# duckdb 0.3.2
+FROM ghcr.io/drifting-in-space/node-duckdb-base:sha-c5e2afb
 
 # Copying package.json & installing node_modules directories
 # up top here because these are expensive calls and package.json
@@ -36,4 +37,4 @@ RUN npm run build
 
 EXPOSE 8080
 WORKDIR /app/server
-CMD ["npm", "run", "container:start"]
+CMD ["npm", "start"]

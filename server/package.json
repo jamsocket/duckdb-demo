@@ -7,17 +7,15 @@
   "scripts": {
     "watch": "nodemon --watch . -e ts --exec npm run dev:start",
     "start": "node .",
-    "container:start": "npm run build-db && npm start",
     "dev:start": "npm run build && npm start",
-    "build-db": "node scripts/build-db.js",
-    "build": "rm -rf dist/* && tsc && cp dbConfig.js dist/",
+    "build": "rm -rf dist/* && tsc",
     "tsc": "tsc",
     "lint": "tslint -c tslint.json -p tsconfig.json"
   },
   "dependencies": {
     "d3-dsv": "^3.0.1",
     "dotenv": "^16.0.0",
-    "duckdb": "0.3.1",
+    "duckdb": "0.3.2",
     "express": "4.17.2",
     "minimist": "^1.2.5",
     "parquetjs": "^0.11.2",

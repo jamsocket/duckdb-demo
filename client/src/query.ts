@@ -1,8 +1,7 @@
 import { io } from 'socket.io-client'
 
 // FIXME: WE SHOULDN'T STORE tablename in two places
-// const config = require('../../server/dbConfig.js')
-const tableName = 'citibike_trips' // config.tableName
+const tableName = 'citibike_trips'
 
 type QueryName = 
   'totalTrips' |
