@@ -1,13 +1,14 @@
 import React from 'react';
 
-type DistributionVizProps = {
+type BarChartProps = {
   bucketCounts: number[];
   bucketValueStart: number; // the starting value of the first bucket
   bucketSize: number;
+  barGap?: number; // pixel gap between bars
   xScaleExtent?: [number, number];
   yScaleExtent?: [number, number];
 }
-export default class DistributionViz extends React.Component<DistributionVizProps> {
+export class BarChart extends React.Component<BarChartProps> {
   canvasRef = React.createRef<HTMLCanvasElement>();
   componentDidMount() {
     this.drawDistribution()
@@ -22,6 +23,7 @@ export default class DistributionViz extends React.Component<DistributionVizProp
     this.canvasRef.current.height = height
 
     const { bucketCounts, bucketSize, bucketValueStart } = this.props
+    const barGap = this.props.barGap ?? 0
     let xScaleExtent = this.props.xScaleExtent
     if (!xScaleExtent) {
       xScaleExtent = [bucketValueStart, bucketValueStart + bucketCounts.length * bucketSize]
@@ -38,9 +40,11 @@ export default class DistributionViz extends React.Component<DistributionVizProp
       const count = bucketCounts[i]
       const valueStart = bucketValueStart + i * bucketSize
       const y = lerp(count, yScaleExtent[0], yScaleExtent[1], height, 0)
-      const x0 = lerp(valueStart, xScaleExtent[0], xScaleExtent[1], 0, width)
-      const x1 = lerp(valueStart + bucketSize, xScaleExtent[0], xScaleExtent[1], 0, width)
+      const x0 = lerp(valueStart, xScaleExtent[0], xScaleExtent[1], 0, width) + barGap / 2
+      const x1 = lerp(valueStart + bucketSize, xScaleExtent[0], xScaleExtent[1], 0, width) - barGap / 2
+      if (barGap) path.push([x0, height])
       path.push([x0, y], [x1, y])
+      if (barGap) path.push([x1, height])
     }
     path.push([width, height])
 

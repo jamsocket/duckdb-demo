@@ -1,6 +1,6 @@
 import React from 'react'
 import './StationsList.css'
-import DistributionViz from './DistributionViz'
+import { BarChart } from './BarChart'
 import { query, QueryReturn } from './query'
 import type {
   StationId,
@@ -120,10 +120,11 @@ function TripsHistogram (props: TripsHistogramProps) {
     for (let i = 0; i < hours.length; i++) avgHourlyTrips[i] += hours[i]
   }
 
-  return <DistributionViz
+  return <BarChart
     bucketCounts={avgHourlyTrips}
     bucketValueStart={0}
     bucketSize={1}
+    barGap={1}
     xScaleExtent={[0, 24]}
     yScaleExtent={[0, props.maxHourlyTrips]}
   />
