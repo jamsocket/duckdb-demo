@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
-import { StationsList } from './StationsList'
+// import { StationsList } from './StationsList'
+import { ChartsPanel } from './ChartsPanel'
 import { StationsMap } from './StationsMap'
 import './index.css';
 import type { StationId, StationMetadata } from './query'
@@ -76,7 +77,7 @@ class App extends React.Component<AppProps, AppState> {
             </h3>
             <h3 className="tripsTimerange">
               {tripsTimerange ? (
-                `${tripsTimerange[0].toDateString()} - ${tripsTimerange[1].toDateString()}`
+                `${tripsTimerange[0].toUTCString().slice(5, 16)} - ${tripsTimerange[1].toUTCString().slice(5, 16)}`
               ) : null}
             </h3>
         </header>
@@ -84,18 +85,19 @@ class App extends React.Component<AppProps, AppState> {
           <div className="App-body">
             <div className="App-left">
               <div className="Map-container">
-                <StationsMap
+                {/* <StationsMap
                   stations={stations}
                   highlightedStation={this.state.highlightedStation}
-                />
+                /> */}
               </div>
             </div>
             <div className="App-right">
-              <StationsList
+              {totalTrips && <ChartsPanel totalTrips={totalTrips}/>}
+              {/* <StationsList
                 maxHourlyTrips={maxHourlyTrips}
                 stationsMap={stationsMap}
                 onStationHover={(id) => this.setState({ highlightedStation: id })}
-              />
+              /> */}
             </div>
           </div>
         ) : null}

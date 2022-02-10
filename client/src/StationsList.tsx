@@ -1,6 +1,6 @@
 import React from 'react'
 import './StationsList.css'
-import { BarChart } from './BarChart'
+import { BarChart } from './BarChartCanvas'
 import { query, QueryReturn } from './query'
 import type {
   StationId,

@@ -10,20 +10,20 @@ input_file = os.path.join(os.getcwd(), sys.argv[1])
 output_file = os.path.join(os.getcwd(), sys.argv[2])
 
 schema = {
-  'duration': 'uint16',
+  'duration': 'int32',
   'start_time': 'str',
   'stop_time': 'str',
-  'start_station_id': 'uint32',
+  'start_station_id': 'int32',
   'start_station_name': 'category',
   'start_station_latitude': 'float32',
   'start_station_longitude': 'float32',
-  'end_station_id': 'uint32',
+  'end_station_id': 'int32',
   'end_station_name': 'category',
   'end_station_latitude': 'float32',
   'end_station_longitude': 'float32',
-  'bike_id': 'uint32',
+  'bike_id': 'int32',
   'user_type': 'category',
-  'birth_year': 'uint16',
+  'birth_year': 'int32',
 }
 
 def haversine(lat1, lon1, lat2, lon2):

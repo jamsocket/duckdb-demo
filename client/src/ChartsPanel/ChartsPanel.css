@@ -1,0 +1,72 @@
+.ChartsPanel {
+  display: flex;
+  flex-flow: row wrap;
+  margin: 0;
+  padding: 24px 0;
+  list-style: none;
+  width: 100%;
+}
+
+.ChartsPanel h3 {
+  margin: 0.5em 0;
+  text-transform: uppercase;
+  font-size: 13px;
+  font-weight: 500;
+  color: #ddd;
+}
+
+.row {
+  padding: 0 15px;
+  width: 100%;
+  display: flex;
+  justify-content: space-around;
+  gap: 25px;
+  margin-bottom: 35px;
+}
+
+.row > div {
+  flex-grow: 1;
+  flex-basis: 0;
+}
+
+.chart-container {
+  position: relative;
+  height: 80px;
+  width: 100%;
+}
+
+.chart-container canvas {
+  opacity: 0;
+  transition: opacity 300ms linear 300ms;
+}
+
+.chart-container.is-loaded canvas {
+  opacity: 1;
+}
+
+.data-loader {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 100%;
+  background-color: rgba(255, 255, 255, 0.04);
+  opacity: 1;
+  transition: opacity 300ms linear 500ms;
+}
+
+.chart-container.is-loaded .data-loader {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.data-loader-bar {
+  height: 100%;
+  background-color: rgba(255, 255, 255, 0.1);
+  width: 0%;
+  transition: width 400ms ease-in-out;
+}
+
+.chart-container.is-loaded .data-loader-bar {
+  width: 100%;
+}

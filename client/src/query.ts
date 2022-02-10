@@ -6,8 +6,17 @@ const tableName = 'citibike_trips'
 type QueryName = 
   'totalTrips' |
   'tripsTimerange' |
+  'tripsByDate' |
+  'tripsByDay' |
+  'tripsByHour' |
   'maxHourlyTrips' |
   'stationsMetadata' |
+  'birthYearExtent' |
+  'birthYearDistribution' |
+  'durationP99' |
+  'durationDistribution' |
+  'distanceP99' |
+  'distanceDistribution' |
   'tripCountsByEndStation' |
   'tripCountsByUserType' |
   'tripCountsByDayHour' |
@@ -32,6 +41,19 @@ type QueryDef = {
   transformResponse: (result: any, ...args: any[]) => any;
 }
 
+export type Extent = number[] | null
+export type Filters = {
+  date: Extent,
+  dayOfWeek: Extent,
+  hourly: Extent,
+  duration: Extent,
+  distance: Extent,
+  birthYear: Extent
+}
+export type FilterName = keyof Filters
+
+export type TripsByDateRow = { epoch: number; date: string; count: number };
+
 export type StationId = number;
 export type StationMetadata = { id: StationId; latitude: number; longitude: number; name: string }
 export type UserType = 'Subscriber' | 'Customer'
@@ -42,6 +64,8 @@ export type TripCountByDay = Record<DayOfWeek, HourlyCountsPerDay>
 
 type TotalTripsDB = { 'count_star()': number }[]
 type TripsTimerangeDB = { 'min(start_time)': string; 'max(start_time)': string }[]
+type TripsByDateDB = { 'date': string; 'count_star()': number }[]
+type TripsByDayDB = { 'day': number; 'count_star()': number }[]
 type MaxHourlyTripsDB = { 'count_star()': number }[]
 type StationMetadataDB = {
   start_station_id: StationId;
@@ -70,10 +94,81 @@ const queries: Record<QueryName, QueryDef> = {
     getQueryStr: () => `SELECT min(start_time), max(start_time) FROM ${tableName}`,
     transformResponse: (result: TripsTimerangeDB) => ({
       tripsTimerange: [
-        result[0]['min(start_time)'],
-        result[0]['max(start_time)']
+        new Date(result[0]['min(start_time)']),
+        new Date(result[0]['max(start_time)'])
       ]
     })
+  },
+  tripsByDate: {
+    getQueryStr: (filters: Filters | null) => `SELECT date_trunc('day', start_time) as date, COUNT(*) FROM ${tableName} GROUP BY date`,
+    transformResponse: (result: TripsByDateDB): TripsByDateRow[] => {
+      const tripsByDate: TripsByDateRow[] = result.map(row => ({
+        epoch: new Date(row.date).valueOf(),
+        date: row.date,
+        count: row['count_star()']
+      }))
+      tripsByDate.sort((a, b) => a.epoch - b.epoch)
+      // TODO: go through and make sure this adds in 0 buckets for missing dates
+      return tripsByDate
+    }
+  },
+  tripsByDay: {
+    getQueryStr: (filters: Filters | null) => `SELECT dayofweek(start_time) as day, COUNT(*) FROM ${tableName} GROUP BY day`,
+    transformResponse: (result: TripsByDayDB): number[] => {
+      const tripsByDay = new Array(7).fill(0)
+      for (const row of result) tripsByDay[row.day] = row['count_star()']
+      return tripsByDay
+    }
+  },
+  tripsByHour: {
+    getQueryStr: (filters: Filters | null) => `SELECT hour(start_time) as hour, COUNT(*) FROM ${tableName} GROUP BY hour`,
+    transformResponse: (result): number[] => {
+      const tripsByHour = new Array(24).fill(0)
+      for (const row of result) tripsByHour[row.hour] = row['count_star()']
+      return tripsByHour
+    }
+  },
+  birthYearExtent: {
+    getQueryStr: () => `SELECT approx_quantile(birth_year, 0.01) as birthYearMin, approx_quantile(birth_year, 0.99) as birthYearMax FROM ${tableName}`,
+    transformResponse: (result) => [result[0].birthYearMin, result[0].birthYearMax]
+  },
+  birthYearDistribution: {
+    getQueryStr: (filters: Filters | null, valueMax: number) => `SELECT birth_year, COUNT(*) FROM ${tableName} WHERE birth_year < ${valueMax} GROUP BY 1 ORDER BY 1`,
+    transformResponse: (result: any) => {
+      return result.map((row: { birth_year: number; 'count_star()': number }) => ({
+        birthYear: row.birth_year,
+        count: row['count_star()']
+      }))
+    }
+  },
+  durationP99: {
+    getQueryStr: () => `SELECT approx_quantile(duration, 0.99) as durationMax FROM ${tableName}`,
+    transformResponse: (result) => result[0].durationMax
+  },
+  durationDistribution: {
+    getQueryStr: (filters: Filters | null, binSize: number, valueMax: number) => `SELECT floor(duration/${binSize})*${binSize} as binFloor, COUNT(*) FROM ${tableName} WHERE duration < ${valueMax} GROUP BY 1 ORDER BY 1`,
+    transformResponse: (result) => {
+      return result.map((row: { binFloor: number; 'count_star()': number }) => ({
+        duration: row.binFloor,
+        count: row['count_star()']
+      }))
+    }
+  },
+  distanceP99: {
+    getQueryStr: () => `SELECT approx_quantile(distance, 0.99) as distanceMax FROM ${tableName}`,
+    transformResponse: (result) => result[0].distanceMax * 1000
+  },
+  distanceDistribution: {
+    getQueryStr: (filters: Filters | null, binSize: number, valueMax: number) => {
+      const binSizeKM = binSize / 1000
+      return `SELECT floor(distance/${binSizeKM})*${binSizeKM} as binFloor, COUNT(*) FROM ${tableName} WHERE distance < ${valueMax} GROUP BY 1 ORDER BY 1`
+    },
+    transformResponse: (result) => {
+      return result.map((row: { binFloor: number; 'count_star()': number }) => ({
+        distance: row.binFloor * 1000,
+        count: row['count_star()']
+      }))
+    }
   },
   maxHourlyTrips: {
     getQueryStr: () => `SELECT COUNT(*) FROM ${tableName} GROUP BY HOUR(start_time), start_station_id`,
