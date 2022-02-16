@@ -307,6 +307,7 @@ function createCacheItem (queryStr: string): CacheItem {
 }
 
 socket.on('query-response', (response: QueryResponse<any>) => {
+  console.log('received query-response:', response.queryStr)
   if (!cache.has(response.queryStr)) cache.set(response.queryStr, createCacheItem(response.queryStr))
   const cacheitem = cache.get(response.queryStr)!
   cacheitem.responseTs = Date.now()
@@ -340,7 +341,7 @@ export function query (queryName: QueryName, ...queryArgs: Array<any>): QueryRet
       }
   
       cacheitem.callbacks.push((response) => {
-        console.log('response name:queryTime', queryName, response.queryTime)
+        // console.log('response name:queryTime', queryName, response.queryTime)
         let transformedResponse = transformedResponseCache.get(queryStr) || queries[queryName].transformResponse(response.result, ...queryArgs)
         transformedResponseCache.set(queryStr, transformedResponse)
         if (!isCancelled) resolve(transformedResponse)
@@ -350,12 +351,14 @@ export function query (queryName: QueryName, ...queryArgs: Array<any>): QueryRet
       }
       cacheitem.isFetching = true
       socket.emit('query', queryStr)
+      console.log('sending query:', queryStr)
     }),
     cancel: () => {
       isCancelled = true
       const cacheitem = cache.get(queryStr)!
       cacheitem.isFetching = false
       socket.emit('cancel', queryStr)
+      console.log('canceling query:', queryStr)
     }
   }
 }

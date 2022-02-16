@@ -15,6 +15,8 @@ type QueryResponse<ResultT> = {
   queryStr: string;
   queryTime: number;
   result: ResultT;
+  cacheHit: boolean;
+  prefetch: boolean;
 }
 
 const DB_DIR = 'db'
@@ -47,11 +49,40 @@ function startServer(db: typeof duckdb.Database) {
 
   const io = new Server(server)
 
+  // -----------------------------------------------------
+  // TO TRY:
+  // 1. cache all the queries in process memory here and send them down in the background
+  // to all newly connected dashboards
+  // 2. when a query is cancelled, simply deprioritize it, but still do the query and send
+  // the results down in the background
+  // -----------------------------------------------------
+
+  const cache = new Map<string, any>()
+  const allFetchedQueries: string[] = []
+
   let connectionsCount = 0
   io.on('connection', (socket: any) => {
     const startTime = performance.now()
     const idx = connectionsCount++
     console.log((performance.now() - startTime) | 0, 'CONNECTED TO CLIENT', idx)
+
+    const prefetchedQueriesCount = allFetchedQueries.length
+    let curPrefetchQuery = 0
+
+    setTimeout(function sendPrefetch() {
+      const qStr = allFetchedQueries[curPrefetchQuery]
+      curPrefetchQuery += 1
+      if (cache.has(qStr)) {
+        const queryTime = 0
+        const cacheHit = true
+        const prefetch = true
+        const result = cache.get(qStr)
+        sendResponse(qStr, queryTime, cacheHit, prefetch, result)
+      } else {
+        console.warn('queryString seen but result not cached')
+      }
+      if (curPrefetchQuery < prefetchedQueriesCount) setTimeout(sendPrefetch, 5)
+    }, 5)
 
     const queryQueue: string[] = []
     const queryIsCancelled = new Map<string, boolean>()
@@ -59,6 +90,14 @@ function startServer(db: typeof duckdb.Database) {
 
     socket.on('query', (queryStr: string) => {
       // console.log((performance.now() - startTime) | 0, 'request for:', queryStr)
+      if (cache.has(queryStr)) {
+        const queryTime = 0
+        const cacheHit = true
+        const prefetch = false
+        const result = cache.get(queryStr)
+        sendResponse(queryStr, queryTime, cacheHit, prefetch, result)
+        return
+      }
       queryQueue.push(queryStr)
       queryIsCancelled.set(queryStr, false)
       makeQuery()
@@ -80,18 +119,24 @@ function startServer(db: typeof duckdb.Database) {
       db.all(queryStr, (err: any, result: any) => {
         console.log((performance.now() - startTime) | 0, (performance.now() - dbCallPlaced) | 0, 'db response for:', queryStr)
         isQuerying = false
+        if (!cache.has(queryStr)) allFetchedQueries.push(queryStr)
+        cache.set(queryStr, result)
         makeQuery()
         if (err) {
           // TODO: send error to client?
           console.warn(`duckdb: error from ${queryStr}`, err)
         }
-        const response: QueryResponse<any> = {
-          queryStr: queryStr,
-          queryTime: performance.now() - dbCallPlaced,
-          result: result
-        }
-        socket.emit('query-response', response)
+
+        const queryTime = performance.now() - dbCallPlaced
+        const cacheHit = false
+        const prefetch = false
+        sendResponse(queryStr, queryTime, cacheHit, prefetch, result)
       })
+    }
+
+    function sendResponse(queryStr: string, queryTime: number, cacheHit: boolean, prefetch: boolean, result: any) {
+      const response: QueryResponse<any> = { queryStr, queryTime, result, prefetch, cacheHit }
+      socket.emit('query-response', response)
     }
   });
 
