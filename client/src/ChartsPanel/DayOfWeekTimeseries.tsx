@@ -1,60 +1,57 @@
 import React from 'react'
 import './ChartsPanel.css'
 import { BarChart } from '../BarChart'
-import { query, QueryReturn, Filters, Extent } from '../query'
+import { query, QueryReturn, Filters, SetFilter } from '../query'
 
 type DayOfWeekTimeseriesProps = {
   filters: Filters;
-  setFilter: (name: keyof Filters, extent: Extent) => void;
+  setFilter: SetFilter;
 }
 type DayOfWeekTimeseriesState = {
   tripsByDay: number[] | null;
-  maxTripsInDay: number | null;
 }
 export class DayOfWeekTimeseries extends React.Component<DayOfWeekTimeseriesProps, DayOfWeekTimeseriesState> {
   queryReturns: QueryReturn[] = []
   state: DayOfWeekTimeseriesState = {
-    tripsByDay: null,
-    maxTripsInDay: null
+    tripsByDay: null
   }
   componentDidMount() {
     this.fetchData()
   }
   componentDidUpdate(prevProps: DayOfWeekTimeseriesProps) {
     if (this.props.filters !== prevProps.filters) {
+      this.cancelQueries()
       this.fetchData()
     }
   }
   fetchData() {
-    const maxTripsInDayQueryReturn = query('tripsByDay', null) // no filters
-    this.queryReturns.push(maxTripsInDayQueryReturn)
-    maxTripsInDayQueryReturn.promise.then((tripsByDay) => {
-      const maxTripsInDay = Math.max(0, ...tripsByDay)
-      // TODO: check if this needs updating to avoid unnecessary rerenders
-      this.setState({ maxTripsInDay })
-    })
-
     const { dayOfWeek, ...filters } = this.props.filters
     const tripsByDayQueryReturn = query('tripsByDay', filters)
     this.queryReturns.push(tripsByDayQueryReturn)
     tripsByDayQueryReturn.promise.then((tripsByDay) => {
-      // TODO: check if this needs updating to avoid unnecessary rerenders
+      const idx = this.queryReturns.indexOf(tripsByDayQueryReturn)
+      this.queryReturns.splice(idx, 1)
+      if (this.state.tripsByDay === tripsByDay) return
       this.setState({ tripsByDay: tripsByDay })
     })
   }
-  componentWillUnmount() {
+  cancelQueries() {
     for (const queryReturn of this.queryReturns) queryReturn.cancel()
     this.queryReturns = []
   }
+  componentWillUnmount() {
+    this.cancelQueries()
+  }
   render() {
-    const { tripsByDay, maxTripsInDay } = this.state
-    const isLoaded = tripsByDay && maxTripsInDay
+    const { tripsByDay } = this.state
+    const isLoaded = tripsByDay
     let bucketCounts: number[] = []
     let bucketValueStart = 0
     let xScaleExtent: [number, number] | null = null
     let yScaleExtent: [number, number] | null = null
     let filterExtent
     if (isLoaded) {
+      const maxTripsInDay = Math.max(0, ...tripsByDay)
       bucketCounts = tripsByDay
       bucketValueStart = 0
       xScaleExtent = [0, 7]

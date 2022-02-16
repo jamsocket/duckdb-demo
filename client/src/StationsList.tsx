@@ -9,7 +9,7 @@ import type {
 } from './query'
 
 
-const TOP_N_COUNT = 20
+const TOP_N_COUNT = 40
 
 type StationsListProps = {
   filters: Filters;
@@ -26,21 +26,31 @@ export class StationsList extends React.Component<StationsListProps, StationsLis
   componentDidMount() {
     this.fetchStations()
   }
-  componentDidUpdate() {
-    this.fetchStations()
+  componentDidUpdate(prevProps: StationsListProps) {
+    if (this.props.filters !== prevProps.filters) {
+      this.cancelQueries()
+      this.fetchStations()
+    }
   }
   fetchStations() {
     const stationsQueryReturn = query('topNStations', this.props.filters, TOP_N_COUNT)
     this.queryReturns.push(stationsQueryReturn)
     stationsQueryReturn.promise.then((res) => {
+      const idx = this.queryReturns.indexOf(stationsQueryReturn)
+      this.queryReturns.splice(idx, 1)
       if (res === this.state.topStations) return
       this.setState({ topStations: res })
     })
   }
   componentWillUnmount() {
+    this.cancelQueries()
+  }
+
+  cancelQueries() {
     for (const queryReturn of this.queryReturns) queryReturn.cancel()
     this.queryReturns = []
   }
+
   render() {
     const { onStationHover } = this.props
     const { topStations } = this.state
@@ -78,13 +88,18 @@ class Station extends React.Component<StationProps, StationState> {
   componentDidMount() {
     this.fetchData()
   }
-  componentDidUpdate() {
-    this.fetchData()
+  componentDidUpdate(prevProps: StationProps) {
+    if (this.props.filters !== prevProps.filters) {
+      this.cancelQueries()
+      this.fetchData()
+    }
   }
   fetchData() {
     const maxHourlyTripsQueryReturn = query('maxHourlyTrips', this.props.filters)
     this.queryReturns.push(maxHourlyTripsQueryReturn)
     maxHourlyTripsQueryReturn.promise.then((res) => {
+      const idx = this.queryReturns.indexOf(maxHourlyTripsQueryReturn)
+      this.queryReturns.splice(idx, 1)
       if (res.maxHourlyTrips === this.state.maxHourlyTrips) return
       this.setState({ maxHourlyTrips: res.maxHourlyTrips })
     })
@@ -92,6 +107,8 @@ class Station extends React.Component<StationProps, StationState> {
     const dayHourQueryReturn = query('tripsByHour', this.props.filters, this.props.id)
     this.queryReturns.push(dayHourQueryReturn)
     dayHourQueryReturn.promise.then((res) => {
+      const idx = this.queryReturns.indexOf(dayHourQueryReturn)
+      this.queryReturns.splice(idx, 1)
       if (res === this.state.tripCountByHour) return
       this.setState({ tripCountByHour: res })
     })
@@ -99,13 +116,18 @@ class Station extends React.Component<StationProps, StationState> {
     const stationNameReturn = query('stationName', this.props.id)
     this.queryReturns.push(stationNameReturn)
     stationNameReturn.promise.then((res) => {
+      const idx = this.queryReturns.indexOf(stationNameReturn)
+      this.queryReturns.splice(idx, 1)
       if (res === this.state.stationName) return
       this.setState({ stationName: res })
     })
   }
-  componentWillUnmount() {
+  cancelQueries() {
     for (const queryReturn of this.queryReturns) queryReturn.cancel()
     this.queryReturns = []
+  }
+  componentWillUnmount() {
+    this.cancelQueries()
   }
   render() {
     const { tripCountByHour, maxHourlyTrips, stationName } = this.state

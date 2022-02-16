@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import './ChartsPanel.css'
 import { DateTimeseries } from './DateTimeseries'
 import { DayOfWeekTimeseries } from './DayOfWeekTimeseries'
@@ -7,26 +6,16 @@ import { DurationHistogram } from './DurationHistogram'
 import { DistanceHistogram } from './DistanceHistogram'
 import { BirthYearHistogram } from './BirthYearHistogram'
 import { StationsList } from '../StationsList'
-import { Filters, Extent, StationId } from '../query'
+import { Filters, SetFilter, StationId } from '../query'
 
 
-type ChartsPanelProps = { totalTrips: number; onStationHover: (stationId: StationId | null) => void; }
-export function ChartsPanel({ totalTrips, onStationHover }: ChartsPanelProps) {
-  const [filters, setFilters] = useState<Filters>({
-    date: null,
-    dayOfWeek: null,
-    hourly: null,
-    duration: null,
-    distance: null,
-    birthYear: null
-  })
-  const setFilter = (name: keyof Filters, extent: Extent) => {
-    if (filters[name] === extent) return
-    setFilters(filters => ({
-      ...filters,
-      [name]: extent
-    }))
-  }
+type ChartsPanelProps = {
+  totalTrips: number;
+  filters: Filters;
+  setFilter: SetFilter;
+  onStationHover: (stationId: StationId | null) => void;
+}
+export function ChartsPanel({ totalTrips, onStationHover, filters, setFilter }: ChartsPanelProps) {
   return (
     <div className="ChartsPanel">
       <div className="row">

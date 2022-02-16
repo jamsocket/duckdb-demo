@@ -1,31 +1,30 @@
 import React from 'react'
 import './ChartsPanel.css'
 import { BarChart } from '../BarChart'
-import { query, QueryReturn, Filters, Extent, TripsByDateRow, fillBuckets } from '../query'
+import { query, QueryReturn, Filters, SetFilter, TripsByDateRow, fillBuckets } from '../query'
 
 const ONE_DAY = 24 * 60 * 60 * 1000
 
 type DateTimeseriesProps = {
   filters: Filters;
-  setFilter: (name: keyof Filters, extent: Extent) => void;
+  setFilter: SetFilter;
 }
 type DateTimeseriesState = {
   allTripsTimerange: [Date, Date] | null;
   tripsByDate: TripsByDateRow[] | null;
-  maxTripsInDate: number | null;
 }
 export class DateTimeseries extends React.Component<DateTimeseriesProps, DateTimeseriesState> {
   queryReturns: QueryReturn[] = []
   state: DateTimeseriesState = {
     allTripsTimerange: null,
-    tripsByDate: null,
-    maxTripsInDate: null
+    tripsByDate: null
   }
   componentDidMount() {
     this.fetchData()
   }
   componentDidUpdate(prevProps: DateTimeseriesProps) {
     if (this.props.filters !== prevProps.filters) {
+      this.cancelQueries()
       this.fetchData()
     }
   }
@@ -33,34 +32,32 @@ export class DateTimeseries extends React.Component<DateTimeseriesProps, DateTim
     const tripsTimerangeQueryReturn = query('tripsTimerange')
     this.queryReturns.push(tripsTimerangeQueryReturn)
     tripsTimerangeQueryReturn.promise.then((res) => {
-      // TODO: check if this needs updating to avoid unnecessary rerenders
+      const idx = this.queryReturns.indexOf(tripsTimerangeQueryReturn)
+      this.queryReturns.splice(idx, 1)
+      if (this.state.allTripsTimerange === res.tripsTimerange) return
       this.setState({ allTripsTimerange: res.tripsTimerange })
-    })
-
-    const maxTripsInDateQueryReturn = query('tripsByDate', null) // no filters
-    this.queryReturns.push(maxTripsInDateQueryReturn)
-    maxTripsInDateQueryReturn.promise.then((tripsByDate) => {
-      let maxTripsInDate = 0
-      for (const { count } of tripsByDate) maxTripsInDate = Math.max(count, maxTripsInDate)
-      // TODO: check if this needs updating to avoid unnecessary rerenders
-      this.setState({ maxTripsInDate })
     })
 
     const { date, ...filters } = this.props.filters
     const tripsByDateQueryReturn = query('tripsByDate', filters)
     this.queryReturns.push(tripsByDateQueryReturn)
     tripsByDateQueryReturn.promise.then((tripsByDate) => {
-      // TODO: check if this needs updating to avoid unnecessary rerenders
+      const idx = this.queryReturns.indexOf(tripsByDateQueryReturn)
+      this.queryReturns.splice(idx, 1)
+      if (this.state.tripsByDate === tripsByDate) return
       this.setState({ tripsByDate: tripsByDate })
     })
   }
-  componentWillUnmount() {
+  cancelQueries() {
     for (const queryReturn of this.queryReturns) queryReturn.cancel()
     this.queryReturns = []
   }
+  componentWillUnmount() {
+    this.cancelQueries()
+  }
   render() {
-    const { allTripsTimerange, tripsByDate, maxTripsInDate } = this.state
-    const isLoaded = allTripsTimerange && tripsByDate && maxTripsInDate
+    const { allTripsTimerange, tripsByDate } = this.state
+    const isLoaded = allTripsTimerange && tripsByDate
     let bucketCounts: number[] = []
     let bucketValueStart = 0
     let xScaleExtent: [number, number] | null = null
@@ -68,6 +65,7 @@ export class DateTimeseries extends React.Component<DateTimeseriesProps, DateTim
     let filterExtent
     if (isLoaded) {
       bucketCounts = fillBuckets(tripsByDate, 'count', 'epoch', (ts: number) => ts + ONE_DAY)
+      const maxTripsInDate = Math.max(...bucketCounts)
       bucketValueStart = tripsByDate[0] ? tripsByDate[0].epoch : 0
       xScaleExtent = [allTripsTimerange[0].valueOf(), allTripsTimerange[1].valueOf()]
       yScaleExtent = [0, maxTripsInDate]

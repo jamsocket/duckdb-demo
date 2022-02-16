@@ -3,8 +3,8 @@ import ReactDOM from 'react-dom';
 import { ChartsPanel } from './ChartsPanel'
 import { StationsMap } from './StationsMap'
 import './index.css';
-import type { StationId, StationMetadata } from './query'
-import { query, QueryReturn } from './query'
+import type { StationId, Filters, StationMetadata, QueryReturn, Extent } from './query'
+import { query } from './query'
 
 type AppProps = {}
 type AppState = {
@@ -13,6 +13,7 @@ type AppState = {
   tripsTimerange: [Date, Date] | null;
   highlightedStation: StationId | null;
   maxHourlyTrips: number | null;
+  filters: Filters;
 }
 
 class App extends React.Component<AppProps, AppState> {
@@ -21,11 +22,37 @@ class App extends React.Component<AppProps, AppState> {
     totalTrips: null,
     tripsTimerange: null,
     highlightedStation: null,
-    maxHourlyTrips: null
+    maxHourlyTrips: null,
+    filters: {
+      date: null,
+      dayOfWeek: null,
+      hourly: null,
+      duration: null,
+      distance: null,
+      birthYear: null
+    }
   }
   queryReturns: QueryReturn[] = []
 
+  setFilter = (name: keyof Filters, extent: Extent) => {
+    this.setState(state => ({
+      filters: {
+        ...state.filters,
+        [name]: extent
+      }
+    }))
+  }
+
   componentDidMount() {
+    this.fetchData()
+  }
+
+  componentWillUnmount() {
+    for (const queryReturn of this.queryReturns) queryReturn.cancel()
+    this.queryReturns = []
+  }
+
+  fetchData() {
     const totalTripsQueryReturn = query('totalTrips')
     this.queryReturns.push(totalTripsQueryReturn)
     totalTripsQueryReturn.promise.then((res) => {
@@ -59,14 +86,9 @@ class App extends React.Component<AppProps, AppState> {
       this.setState({ stationsMap })
     })
   }
-  componentWillUnmount() {
-    for (const queryReturn of this.queryReturns) queryReturn.cancel()
-    this.queryReturns = []
-  }
+
   render() {
     const { stationsMap, tripsTimerange, totalTrips, maxHourlyTrips } = this.state
-    const stations = Array.from(stationsMap.values())
-
     return (
       <div className="App">
         <header className="App-header">
@@ -80,18 +102,22 @@ class App extends React.Component<AppProps, AppState> {
               ) : null}
             </h3>
         </header>
-        {stations.length && maxHourlyTrips ? (
+        {stationsMap.size > 0 && maxHourlyTrips ? (
           <div className="App-body">
             <div className="App-left">
               <div className="Map-container">
-                {/* <StationsMap
-                  stations={stations}
+                <StationsMap
+                  filters={this.state.filters}
+                  setFilter={this.setFilter}
+                  stationsMap={stationsMap}
                   highlightedStation={this.state.highlightedStation}
-                /> */}
+                />
               </div>
             </div>
             <div className="App-right">
               {totalTrips && <ChartsPanel
+                filters={this.state.filters}
+                setFilter={this.setFilter}
                 totalTrips={totalTrips}
                 onStationHover={(id) => this.setState({ highlightedStation: id })}
               />}

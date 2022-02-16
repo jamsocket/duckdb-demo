@@ -1,16 +1,15 @@
 import React from 'react'
 import './ChartsPanel.css'
 import { BarChart } from '../BarChart'
-import { query, QueryReturn, Filters, Extent, fillBuckets } from '../query'
+import { query, QueryReturn, Filters, SetFilter, fillBuckets } from '../query'
 
 type DurationHistogramProps = {
   filters: Filters;
   totalTrips: number;
-  setFilter: (name: keyof Filters, extent: Extent) => void;
+  setFilter: SetFilter;
 }
 type DurationHistogramState = {
   durationBuckets: { duration: number; count: number }[] | null;
-  maxDurationBucket: number | null;
   durationP99: number | null;
   binSize: number | null;
 }
@@ -18,7 +17,6 @@ export class DurationHistogram extends React.Component<DurationHistogramProps, D
   queryReturns: QueryReturn[] = []
   state: DurationHistogramState = {
     durationBuckets: null,
-    maxDurationBucket: null,
     durationP99: null,
     binSize: null
   }
@@ -27,6 +25,7 @@ export class DurationHistogram extends React.Component<DurationHistogramProps, D
   }
   componentDidUpdate(prevProps: DurationHistogramProps) {
     if (this.props.filters !== prevProps.filters) {
+      this.cancelQueries()
       this.fetchData()
     }
   }
@@ -34,44 +33,45 @@ export class DurationHistogram extends React.Component<DurationHistogramProps, D
     const durationP99QueryReturn = query('durationP99')
     this.queryReturns.push(durationP99QueryReturn)
     durationP99QueryReturn.promise.then((durationP99) => {
+      const idx = this.queryReturns.indexOf(durationP99QueryReturn)
+      this.queryReturns.splice(idx, 1)
       const { duration, ...filters } = this.props.filters
       const range = durationP99
       const numBins = (1 + Math.log2(this.props.totalTrips)) * 4
       const binSize = Math.ceil(range / numBins)
       const valueMax = durationP99
 
-      // TODO: check if this needs updating to avoid unnecessary rerenders
-      this.setState({ durationP99, binSize })
+      if (this.state.durationP99 !== durationP99 || this.state.binSize !== binSize) {
+        this.setState({ durationP99, binSize })
+      }
 
       const durationDistributionQueryReturn = query('durationDistribution', filters, binSize, valueMax)
       this.queryReturns.push(durationDistributionQueryReturn)
       durationDistributionQueryReturn.promise.then((durationDistribution) => {
-        // TODO: check if this needs updating to avoid unnecessary rerenders
+        const idx = this.queryReturns.indexOf(durationDistributionQueryReturn)
+        this.queryReturns.splice(idx, 1)
+        if (this.state.durationBuckets === durationDistribution) return
         this.setState({ durationBuckets: durationDistribution })
-      })
-
-      const maxDurationQueryReturn = query('durationDistribution', null, binSize, valueMax)
-      this.queryReturns.push(maxDurationQueryReturn)
-      maxDurationQueryReturn.promise.then((durationDistribution) => {
-        const maxDurationBucket = Math.max(...durationDistribution.map((b: any) => b.count))
-        // TODO: check if this needs updating to avoid unnecessary rerenders
-        this.setState({ maxDurationBucket })
       })
     })
   }
-  componentWillUnmount() {
+  cancelQueries() {
     for (const queryReturn of this.queryReturns) queryReturn.cancel()
     this.queryReturns = []
   }
+  componentWillUnmount() {
+    this.cancelQueries()
+  }
   render() {
-    const { durationBuckets, durationP99, maxDurationBucket } = this.state
-    const isLoaded = durationBuckets && durationP99 && maxDurationBucket
+    const { durationBuckets, durationP99 } = this.state
+    const isLoaded = durationBuckets && durationP99
     let bucketCounts: number[] = []
     let bucketValueStart = 0
     let xScaleExtent: [number, number] | null = null
     let yScaleExtent: [number, number] | null = null
     let filterExtent
     if (isLoaded) {
+      const maxDurationBucket = Math.max(...durationBuckets.map((b: any) => b.count))
       bucketCounts = this.state.binSize ? fillBuckets(durationBuckets, 'count', 'duration', (dur: number) => dur + this.state.binSize!) : [0]
       bucketValueStart = durationBuckets.length ? durationBuckets[0].duration : 0
       // TODO: should include the entire bottom and top buckets

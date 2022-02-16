@@ -1,60 +1,57 @@
 import React from 'react'
 import './ChartsPanel.css'
 import { BarChart } from '../BarChart'
-import { query, QueryReturn, Filters, Extent } from '../query'
+import { query, QueryReturn, Filters, SetFilter } from '../query'
 
 type HourlyTimeseriesProps = {
   filters: Filters;
-  setFilter: (name: keyof Filters, extent: Extent) => void;
+  setFilter: SetFilter;
 }
 type HourlyTimeseriesState = {
   tripsByHour: number[] | null;
-  maxTripsInHour: number | null;
 }
 export class HourlyTimeseries extends React.Component<HourlyTimeseriesProps, HourlyTimeseriesState> {
   queryReturns: QueryReturn[] = []
   state: HourlyTimeseriesState = {
-    tripsByHour: null,
-    maxTripsInHour: null
+    tripsByHour: null
   }
   componentDidMount() {
     this.fetchData()
   }
   componentDidUpdate(prevProps: HourlyTimeseriesProps) {
     if (this.props.filters !== prevProps.filters) {
+      this.cancelQueries()
       this.fetchData()
     }
   }
   fetchData() {
-    const maxTripsInHourQueryReturn = query('tripsByHour', null) // no filters
-    this.queryReturns.push(maxTripsInHourQueryReturn)
-    maxTripsInHourQueryReturn.promise.then((tripsByHour) => {
-      const maxTripsInHour = Math.max(0, ...tripsByHour)
-      // TODO: check if this needs updating to avoid unnecessary rerenders
-      this.setState({ maxTripsInHour })
-    })
-
     const { hourly, ...filters } = this.props.filters
     const tripsByHourQueryReturn = query('tripsByHour', filters)
     this.queryReturns.push(tripsByHourQueryReturn)
     tripsByHourQueryReturn.promise.then((tripsByHour) => {
-      // TODO: check if this needs updating to avoid unnecessary rerenders
+      const idx = this.queryReturns.indexOf(tripsByHourQueryReturn)
+      this.queryReturns.splice(idx, 1)
+      if (this.state.tripsByHour === tripsByHour) return
       this.setState({ tripsByHour: tripsByHour })
     })
   }
-  componentWillUnmount() {
+  cancelQueries() {
     for (const queryReturn of this.queryReturns) queryReturn.cancel()
     this.queryReturns = []
   }
+  componentWillUnmount() {
+    this.cancelQueries()
+  }
   render() {
-    const { tripsByHour, maxTripsInHour } = this.state
-    const isLoaded = tripsByHour && maxTripsInHour
+    const { tripsByHour } = this.state
+    const isLoaded = tripsByHour
     let bucketCounts: number[] = []
     let bucketValueStart = 0
     let xScaleExtent: [number, number] | null = null
     let yScaleExtent: [number, number] | null = null
     let filterExtent
     if (isLoaded) {
+      const maxTripsInHour = Math.max(...tripsByHour)
       bucketCounts = tripsByHour
       bucketValueStart = 0
       xScaleExtent = [0, 24]

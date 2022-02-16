@@ -53,11 +53,34 @@ function startServer(db: typeof duckdb.Database) {
     const idx = connectionsCount++
     console.log((performance.now() - startTime) | 0, 'CONNECTED TO CLIENT', idx)
 
+    const queryQueue: string[] = []
+    const queryIsCancelled = new Map<string, boolean>()
+    let isQuerying = false
+
     socket.on('query', (queryStr: string) => {
       // console.log((performance.now() - startTime) | 0, 'request for:', queryStr)
+      queryQueue.push(queryStr)
+      queryIsCancelled.set(queryStr, false)
+      makeQuery()
+    });
+
+    socket.on('cancel', (queryStr: string) => {
+      // console.log((performance.now() - startTime) | 0, 'request for:', queryStr)
+      queryIsCancelled.set(queryStr, true)
+    })
+
+    function makeQuery(): void {
+      if (isQuerying || queryQueue.length === 0) return
+      const queryStr = queryQueue.shift()
+      if (queryIsCancelled.get(queryStr)) {
+        return makeQuery()
+      }
       const dbCallPlaced = performance.now()
+      isQuerying = true
       db.all(queryStr, (err: any, result: any) => {
         console.log((performance.now() - startTime) | 0, (performance.now() - dbCallPlaced) | 0, 'db response for:', queryStr)
+        isQuerying = false
+        makeQuery()
         if (err) {
           // TODO: send error to client?
           console.warn(`duckdb: error from ${queryStr}`, err)
@@ -69,7 +92,7 @@ function startServer(db: typeof duckdb.Database) {
         }
         socket.emit('query-response', response)
       })
-    });
+    }
   });
 
   app.get('/', (req: any, res: any) => {
@@ -120,7 +143,7 @@ function createDatabase() {
           reject(err)
         }
         console.log('duckdb database set to read only')
-        db.run('PRAGMA enable_profiling')
+        // db.run('PRAGMA enable_profiling')
         db.all('SELECT * FROM duckdb_settings()', (err: Error, response: any) => {
           if (err) {
             console.error('duckdb error reading settings:', err)

@@ -1,23 +1,21 @@
 import React from 'react'
 import './ChartsPanel.css'
 import { BarChart } from '../BarChart'
-import { query, QueryReturn, Filters, Extent, fillBuckets } from '../query'
+import { query, QueryReturn, Filters, SetFilter, fillBuckets } from '../query'
 
 type BirthYearHistogramProps = {
   filters: Filters;
   totalTrips: number;
-  setFilter: (name: keyof Filters, extent: Extent) => void;
+  setFilter: SetFilter;
 }
 type BirthYearHistogramState = {
   birthYearBuckets: { birthYear: number; count: number }[] | null;
-  maxBirthYearBucket: number | null;
   birthYearExtent: [number, number] | null;
 }
 export class BirthYearHistogram extends React.Component<BirthYearHistogramProps, BirthYearHistogramState> {
   queryReturns: QueryReturn[] = []
   state: BirthYearHistogramState = {
     birthYearBuckets: null,
-    maxBirthYearBucket: null,
     birthYearExtent: null
   }
   componentDidMount() {
@@ -25,6 +23,7 @@ export class BirthYearHistogram extends React.Component<BirthYearHistogramProps,
   }
   componentDidUpdate(prevProps: BirthYearHistogramProps) {
     if (this.props.filters !== prevProps.filters) {
+      this.cancelQueries()
       this.fetchData()
     }
   }
@@ -32,41 +31,40 @@ export class BirthYearHistogram extends React.Component<BirthYearHistogramProps,
     const birthYearExtentQueryReturn = query('birthYearExtent')
     this.queryReturns.push(birthYearExtentQueryReturn)
     birthYearExtentQueryReturn.promise.then((birthYearExtent) => {
+      const idx = this.queryReturns.indexOf(birthYearExtentQueryReturn)
+      this.queryReturns.splice(idx, 1)
       const { birthYear, ...filters } = this.props.filters
       const valueMax = birthYearExtent[1]
-
-      // TODO: check if this needs updating to avoid unnecessary rerenders
+      if (this.state.birthYearExtent === birthYearExtent) return
       this.setState({ birthYearExtent })
 
       const birthYearDistributionQueryReturn = query('birthYearDistribution', filters, valueMax)
       this.queryReturns.push(birthYearDistributionQueryReturn)
       birthYearDistributionQueryReturn.promise.then((birthYearDistribution) => {
-        // TODO: check if this needs updating to avoid unnecessary rerenders
+        const idx = this.queryReturns.indexOf(birthYearDistributionQueryReturn)
+        this.queryReturns.splice(idx, 1)
+        if (this.state.birthYearBuckets === birthYearDistribution) return
         this.setState({ birthYearBuckets: birthYearDistribution })
-      })
-
-      const maxBirthYearQueryReturn = query('birthYearDistribution', null, valueMax)
-      this.queryReturns.push(maxBirthYearQueryReturn)
-      maxBirthYearQueryReturn.promise.then((birthYearDistribution) => {
-        const maxBirthYearBucket = Math.max(...birthYearDistribution.map((b: any) => b.count))
-        // TODO: check if this needs updating to avoid unnecessary rerenders
-        this.setState({ maxBirthYearBucket })
       })
     })
   }
   componentWillUnmount() {
+    this.cancelQueries()
+  }
+  cancelQueries() {
     for (const queryReturn of this.queryReturns) queryReturn.cancel()
     this.queryReturns = []
   }
   render() {
-    const { birthYearBuckets, birthYearExtent, maxBirthYearBucket } = this.state
-    const isLoaded = birthYearBuckets && birthYearExtent && maxBirthYearBucket
+    const { birthYearBuckets, birthYearExtent } = this.state
+    const isLoaded = birthYearBuckets && birthYearExtent
     let bucketCounts: number[] = []
     let bucketValueStart = 0
     let xScaleExtent: [number, number] | null = null
     let yScaleExtent: [number, number] | null = null
     let filterExtent
     if (isLoaded) {
+      const maxBirthYearBucket = Math.max(...birthYearBuckets.map((b: any) => b.count))
       bucketCounts = fillBuckets(birthYearBuckets, 'count', 'birthYear', (by: number) => by + 1)
       bucketValueStart = birthYearBuckets[0] ? birthYearBuckets[0].birthYear : 0
       // TODO: should include the entire bottom and top buckets

@@ -19,6 +19,7 @@ type QueryName =
   'distanceP99' |
   'distanceDistribution' |
   'stationName' |
+  'tripCountsByStartAndEnd' |
   'tripCountsByEndStation' |
   'tripCountsByUserType' |
   'tripCountsByDayHour' |
@@ -44,6 +45,7 @@ type QueryDef = {
 }
 
 export type Extent = number[] | null
+export type SetFilter = (name: keyof Filters, extent: Extent) => void
 export type Filters = {
   date: Extent,
   dayOfWeek: Extent,
@@ -234,6 +236,13 @@ const queries: Record<QueryName, QueryDef> = {
     getQueryStr: (id: number) => `SELECT start_station_name from ${tableName} WHERE start_station_id=${id} LIMIT 1`,
     transformResponse: (result) => result[0]['start_station_name']
   },
+  tripCountsByStartAndEnd: {
+    getQueryStr: (filters: Filters | null) => {
+      const whereClause = filters ? combineWhereExpressions(getFilterExpressions(filters)) : ''
+      return `SELECT start_station_id as "start", end_station_id as "end", COUNT(*) as "count" FROM ${tableName} ${whereClause} GROUP BY ("start", "end")`
+    },
+    transformResponse: (result) => result
+  },
   tripCountsByEndStation: {
     getQueryStr: (startStationId: StationId) => `SELECT end_station_id, COUNT(*) FROM ${tableName} WHERE start_station_id=${startStationId} GROUP BY end_station_id`,
     transformResponse: (result: EndStationsByStartStationDB, startStationId: StationId) => {
@@ -318,9 +327,9 @@ socket.on('query-response', (response: QueryResponse<any>) => {
 export type QueryReturn = { promise: Promise<any>, cancel: () => void }
 export function query (queryName: QueryName, ...queryArgs: Array<any>): QueryReturn {
   let isCancelled = false
+  const queryStr = queries[queryName].getQueryStr(...queryArgs)
   return {
     promise: new Promise((resolve, reject) => {
-      const queryStr = queries[queryName].getQueryStr(...queryArgs)
       if (!cache.has(queryStr)) cache.set(queryStr, createCacheItem(queryStr))
       const cacheitem = cache.get(queryStr)!
       if (cacheitem.isFetching === false && cacheitem.response !== null) {
@@ -342,7 +351,12 @@ export function query (queryName: QueryName, ...queryArgs: Array<any>): QueryRet
       cacheitem.isFetching = true
       socket.emit('query', queryStr)
     }),
-    cancel: () => isCancelled = true
+    cancel: () => {
+      isCancelled = true
+      const cacheitem = cache.get(queryStr)!
+      cacheitem.isFetching = false
+      socket.emit('cancel', queryStr)
+    }
   }
 }
 

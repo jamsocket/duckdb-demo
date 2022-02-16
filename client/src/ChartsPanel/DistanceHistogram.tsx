@@ -1,16 +1,15 @@
 import React from 'react'
 import './ChartsPanel.css'
 import { BarChart } from '../BarChart'
-import { query, QueryReturn, Filters, Extent, fillBuckets } from '../query'
+import { query, QueryReturn, Filters, SetFilter, fillBuckets } from '../query'
 
 type DistanceHistogramProps = {
   filters: Filters;
   totalTrips: number;
-  setFilter: (name: keyof Filters, extent: Extent) => void;
+  setFilter: SetFilter;
 }
 type DistanceHistogramState = {
   distanceBuckets: { distance: number; count: number }[] | null;
-  maxDistanceBucket: number | null;
   distanceP99: number | null;
   binSize: number | null;
 }
@@ -18,7 +17,6 @@ export class DistanceHistogram extends React.Component<DistanceHistogramProps, D
   queryReturns: QueryReturn[] = []
   state: DistanceHistogramState = {
     distanceBuckets: null,
-    maxDistanceBucket: null,
     distanceP99: null,
     binSize: null
   }
@@ -27,6 +25,7 @@ export class DistanceHistogram extends React.Component<DistanceHistogramProps, D
   }
   componentDidUpdate(prevProps: DistanceHistogramProps) {
     if (this.props.filters !== prevProps.filters) {
+      this.cancelQueries()
       this.fetchData()
     }
   }
@@ -34,44 +33,45 @@ export class DistanceHistogram extends React.Component<DistanceHistogramProps, D
     const distanceP99QueryReturn = query('distanceP99')
     this.queryReturns.push(distanceP99QueryReturn)
     distanceP99QueryReturn.promise.then((distanceP99) => {
+      const idx = this.queryReturns.indexOf(distanceP99QueryReturn)
+      this.queryReturns.splice(idx, 1)
       const { distance, ...filters } = this.props.filters
       const range = distanceP99
       const numBins = (1 + Math.log2(this.props.totalTrips)) * 4
       const binSize = Math.ceil(range / numBins)
       const valueMax = distanceP99
 
-      // TODO: check if this needs updating to avoid unnecessary rerenders
-      this.setState({ distanceP99, binSize })
+      if (this.state.distanceP99 !== distanceP99 || this.state.binSize !== binSize) {
+        this.setState({ distanceP99, binSize })
+      }
 
       const distanceDistributionQueryReturn = query('distanceDistribution', filters, binSize, valueMax)
       this.queryReturns.push(distanceDistributionQueryReturn)
       distanceDistributionQueryReturn.promise.then((distanceDistribution) => {
-        // TODO: check if this needs updating to avoid unnecessary rerenders
+        const idx = this.queryReturns.indexOf(distanceDistributionQueryReturn)
+        this.queryReturns.splice(idx, 1)
+        if (this.state.distanceBuckets === distanceDistribution) return
         this.setState({ distanceBuckets: distanceDistribution })
-      })
-
-      const maxDistanceQueryReturn = query('distanceDistribution', null, binSize, valueMax)
-      this.queryReturns.push(maxDistanceQueryReturn)
-      maxDistanceQueryReturn.promise.then((distanceDistribution) => {
-        const maxDistanceBucket = Math.max(...distanceDistribution.map((b: any) => b.count))
-        // TODO: check if this needs updating to avoid unnecessary rerenders
-        this.setState({ maxDistanceBucket })
       })
     })
   }
-  componentWillUnmount() {
+  cancelQueries() {
     for (const queryReturn of this.queryReturns) queryReturn.cancel()
     this.queryReturns = []
   }
+  componentWillUnmount() {
+    this.cancelQueries()
+  }
   render() {
-    const { distanceBuckets, distanceP99, maxDistanceBucket } = this.state
-    const isLoaded = distanceBuckets && distanceP99 && maxDistanceBucket
+    const { distanceBuckets, distanceP99 } = this.state
+    const isLoaded = distanceBuckets && distanceP99
     let bucketCounts: number[] = []
     let bucketValueStart = 0
     let xScaleExtent: [number, number] | null = null
     let yScaleExtent: [number, number] | null = null
     let filterExtent
     if (isLoaded) {
+      const maxDistanceBucket = Math.max(...distanceBuckets.map((b: any) => b.count))
       bucketCounts = this.state.binSize ? fillBuckets(distanceBuckets, 'count', 'distance', (dist: number) => dist + this.state.binSize!) : [0]
       bucketValueStart = distanceBuckets.length ? distanceBuckets[0].distance : 0
       // TODO: should include the entire bottom and top buckets

@@ -1,45 +1,36 @@
 import React from 'react'
 import * as d3Geo from 'd3-geo'
 import './StationsMap.css'
-import { query, QueryReturn } from './query'
+import { query } from './query'
 import type {
   StationId,
-  UserType,
-  UserBirthYear,
-  TripCountByDay,
-  StationMetadata
+  StationMetadata,
+  QueryReturn,
+  Filters,
+  SetFilter
 } from './query'
 
 const roads = require('./manhattan-roads.json')
 
-const STATIONS_DATA_PROPERTY_COUNT = 1
 const STATIONS_OPACITY = 0.8
 const STATIONS_RADIUS = 4
-const TRANSITION_RATE = 0.15
-const CONNECTION_OPACITY = 0.005
+const CONNECTION_OPACITY = 0.01
 const TRIPS_CONNECTION_THRESHOLD = 4
 
-type StationData = {
-  tripCountByEndStation?: Record<StationId, number>;
-  tripCountByUserType?: Record<UserType, number>
-  tripCountByDay?: TripCountByDay;
-  tripCountByUserBirthYear?: Record<UserBirthYear, number>;
+type Connection = { start: StationId; end: StationId; count: number }
+
+type StationsMapState = {
+  connections: Connection[];
+  connectionsByStart: Map<StationId, Array<{ end: StationId; count: number }>>;
 }
-
-type StationPercRendered = number
-type Connection = [StationId, StationId]
-
 type StationsMapProps = {
-  stations: StationMetadata[];
+  stationsMap: Map<StationId, StationMetadata>;
   highlightedStation: StationId | null;
+  filters: Filters;
+  setFilter: SetFilter;
 }
-export class StationsMap extends React.Component<StationsMapProps> {
-  responseCount = 0;
+export class StationsMap extends React.Component<StationsMapProps, StationsMapState> {
   queryReturns: QueryReturn[] = [];
-  // @ts-ignore
-  stationsDataMap: Map<StationId, StationData> = (window.stationsDataMap = new Map());
-  stationsPercRendered: Map<StationId, StationPercRendered> = new Map();
-  stationsMetadataMap: Map<StationId, StationMetadata> = new Map();
   containerRef = React.createRef<HTMLDivElement>();
   baseCanvasRef = React.createRef<HTMLCanvasElement>();
   connectionsCanvasRef = React.createRef<HTMLCanvasElement>();
@@ -53,15 +44,63 @@ export class StationsMap extends React.Component<StationsMapProps> {
   width = 0;
   height = 0;
   rafToken = 0;
-  connectionsSinceLastFrame: Connection[] = [];
-  isDoneRenderingStations = false;
+  state: StationsMapState = {
+    connections: [],
+    connectionsByStart: new Map()
+  };
 
   componentDidMount() {
-    const { width, height } = this.containerRef.current!.getBoundingClientRect()
+    this.setCanvasDimensions()
 
+    this.baseCtx = this.baseCanvasRef.current!.getContext('2d')
+    this.connectionsCtx = this.connectionsCanvasRef.current!.getContext('2d')
+    this.stationsCtx = this.stationsCanvasRef.current!.getContext('2d')
+    this.highlightedCtx = this.highlightedCanvasRef.current!.getContext('2d')
+
+    this.setCanvasOpacities()
+    this.drawBaseMap()
+    this.drawStations()
+
+    this.fetchData()
+  }
+
+  componentDidUpdate(prevProps: StationsMapProps, prevState: StationsMapState) {
+    if (this.props.highlightedStation !== prevProps.highlightedStation) {
+      this.startRenderLoop()
+      this.setCanvasOpacities()
+    }
+    if (this.props.filters !== prevProps.filters) {
+      this.cancelQueries()
+      this.fetchData()
+    }
+    if (this.state.connections !== prevState.connections) {
+      this.drawConnections()
+    }
+  }
+
+  fetchData() {
+    const queryReturn = query('tripCountsByStartAndEnd', this.props.filters)
+    this.queryReturns.push(queryReturn)
+    queryReturn.promise.then((res) => {
+      const idx = this.queryReturns.indexOf(queryReturn)
+      this.queryReturns.splice(idx, 1)
+      const connectionsByStart = new Map()
+      for (const c of res) {
+        const list = connectionsByStart.get(c.start) || []
+        list.push({ end: c.end, count: c.count })
+        connectionsByStart.set(c.start, list)
+      }
+      this.setState({
+        connections: res,
+        connectionsByStart: connectionsByStart
+      })
+    })
+  }
+
+  setCanvasDimensions() {
+    const { width, height } = this.containerRef.current!.getBoundingClientRect()
     this.width = width
     this.height = height
-
     this.baseCanvasRef.current!.width = width
     this.baseCanvasRef.current!.height = height
     this.connectionsCanvasRef.current!.width = width
@@ -70,22 +109,12 @@ export class StationsMap extends React.Component<StationsMapProps> {
     this.stationsCanvasRef.current!.height = height
     this.highlightedCanvasRef.current!.width = width
     this.highlightedCanvasRef.current!.height = height
+  }
 
-    this.baseCtx = this.baseCanvasRef.current!.getContext('2d')
-    this.connectionsCtx = this.connectionsCanvasRef.current!.getContext('2d')
-    this.stationsCtx = this.stationsCanvasRef.current!.getContext('2d')
-    this.highlightedCtx = this.highlightedCanvasRef.current!.getContext('2d')
-
-    for (const station of this.props.stations) {
-      this.stationsMetadataMap.set(station.id, station)
-      this.stationsPercRendered.set(station.id, 0)
-    }
-
-    const highlightedStation = this.isDoneRenderingStations ? this.props.highlightedStation : null
-
+  setCanvasOpacities() {
     this.baseCanvasRef.current!.style.opacity = '1'
-    if (highlightedStation) {
-      this.connectionsCanvasRef.current!.style.opacity = '0.5'
+    if (this.props.highlightedStation !== null) {
+      this.connectionsCanvasRef.current!.style.opacity = '0.25'
       this.stationsCanvasRef.current!.style.opacity = '0.5'
       this.highlightedCanvasRef.current!.style.opacity = '1'
     } else {
@@ -93,48 +122,10 @@ export class StationsMap extends React.Component<StationsMapProps> {
       this.stationsCanvasRef.current!.style.opacity = '1'
       this.highlightedCanvasRef.current!.style.opacity = '0'
     }
-
-    this.drawBaseMap()
-    this.startRenderLoop()
-
-    const stationsDataMap = this.stationsDataMap
-
-    for (const station of this.props.stations) {
-      // wrapping this in a timeout so other parts of the application have a chance to send their queries, too
-      setTimeout(() => {
-        const queryReturn = query('tripCountsByEndStation', station.id)
-        this.queryReturns.push(queryReturn)
-        queryReturn.promise.then((res) => {
-          if (!stationsDataMap.has(res.stationId)) stationsDataMap.set(res.stationId, {})
-          const data = stationsDataMap.get(res.stationId)!
-          data.tripCountByEndStation = res.tripCountByEndStation
-          for (const endStationIdStr of Object.keys(data.tripCountByEndStation!)) {
-            const endStationId = Number(endStationIdStr)
-            const tripCount = data.tripCountByEndStation![endStationId]
-            if (tripCount <= TRIPS_CONNECTION_THRESHOLD) continue
-            this.connectionsSinceLastFrame.push([res.stationId, endStationId])
-          }
-        })
-      }, 0)
-    }
-  }
-
-  componentDidUpdate(prevProps: StationsMapProps) {
-    if (this.props.highlightedStation !== prevProps.highlightedStation) {
-      const highlightedStation = this.isDoneRenderingStations ? this.props.highlightedStation : null
-      if (highlightedStation !== null) {
-        this.connectionsCanvasRef.current!.style.opacity = '0.25'
-        this.stationsCanvasRef.current!.style.opacity = '0.5'
-        this.highlightedCanvasRef.current!.style.opacity = '1'
-      } else {
-        this.connectionsCanvasRef.current!.style.opacity = '1'
-        this.stationsCanvasRef.current!.style.opacity = '1'
-        this.highlightedCanvasRef.current!.style.opacity = '0'
-      }
-    }
   }
 
   startRenderLoop() {
+    this.stopRenderLoop()
     this.rafToken = requestAnimationFrame(this.renderLoop)
   }
 
@@ -144,11 +135,7 @@ export class StationsMap extends React.Component<StationsMapProps> {
   }
 
   renderLoop = () => {
-    this.drawStations()
-    this.drawNewConnections(this.connectionsSinceLastFrame)
-    this.connectionsSinceLastFrame.length = 0
-    const highlightedStation = this.isDoneRenderingStations ? this.props.highlightedStation : null
-    this.drawHighlightedStation(highlightedStation)
+    this.drawHighlightedStation(this.props.highlightedStation)
     this.rafToken = requestAnimationFrame(this.renderLoop)
   }
 
@@ -161,40 +148,29 @@ export class StationsMap extends React.Component<StationsMapProps> {
   }
 
   drawStations() {
-    if (!this.stationsCtx || this.isDoneRenderingStations) return
+    if (!this.stationsCtx) return
     this.stationsCtx.clearRect(0, 0, this.width, this.height)
-    this.isDoneRenderingStations = true
-    for (const station of this.props.stations) {
-      const data = this.stationsDataMap.get(station.id)
-      let percLoaded = 0
-      if (data) percLoaded = Object.keys(data).length / STATIONS_DATA_PROPERTY_COUNT
+    for (const [, station] of Array.from(this.props.stationsMap)) {
       const xy = this.projection([station.longitude, station.latitude])
       if (!xy) continue
-      let percRendered = this.stationsPercRendered.get(station.id)!
-      percRendered += (percLoaded - percRendered) * TRANSITION_RATE
-      if (Math.abs(percLoaded - percRendered) < 0.01) percRendered = percLoaded
-      this.stationsPercRendered.set(station.id, percRendered)
-      const opacity = STATIONS_OPACITY * percRendered
-      const radius = STATIONS_RADIUS * percRendered
-      if (percRendered < 1) this.isDoneRenderingStations = false
-
       this.stationsCtx.beginPath()
-      this.stationsCtx.arc(xy[0], xy[1], radius, 0, Math.PI * 2)
-      this.stationsCtx.fillStyle = `rgba(135, 206, 250, ${opacity})`
+      this.stationsCtx.arc(xy[0], xy[1], STATIONS_RADIUS, 0, Math.PI * 2)
+      this.stationsCtx.fillStyle = `rgba(135, 206, 250, ${STATIONS_OPACITY})`
       this.stationsCtx.strokeStyle = `rgba(50, 50, 50, 0.5)`
       this.stationsCtx.fill()
       this.stationsCtx.stroke()
     }
   }
 
-  drawNewConnections(newConnections: Connection[]) {
-    if (!this.connectionsCtx || newConnections.length === 0) return
+  drawConnections() {
+    if (!this.connectionsCtx || this.state.connections.length === 0) return
+    this.connectionsCtx.clearRect(0, 0, this.width, this.height)
     this.connectionsCtx.globalCompositeOperation = 'lighter'
     this.connectionsCtx.beginPath()
-    for (const connection of newConnections) {
-      const startStation = this.stationsMetadataMap.get(connection[0])
-      const endStation = this.stationsMetadataMap.get(connection[1])
-      if (!startStation || !endStation) continue
+    for (const connection of this.state.connections) {
+      const startStation = this.props.stationsMap.get(connection.start)
+      const endStation = this.props.stationsMap.get(connection.end)
+      if (!startStation || !endStation || connection.count < TRIPS_CONNECTION_THRESHOLD) continue
       const startXY = this.projection([startStation.longitude, startStation.latitude])
       const endXY = this.projection([endStation.longitude, endStation.latitude])
       if (!startXY || !endXY) continue
@@ -210,23 +186,21 @@ export class StationsMap extends React.Component<StationsMapProps> {
     if (!this.highlightedCtx || highlightedStationId === null) return
     this.highlightedCtx.clearRect(0, 0, this.width, this.height)
 
-    const station = this.stationsMetadataMap.get(highlightedStationId)!
+    const station = this.props.stationsMap.get(highlightedStationId)!
     const stationXY = this.projection([station.longitude, station.latitude])
     if (!stationXY) return
 
-    const data = this.stationsDataMap.get(highlightedStationId)
-    if (data?.tripCountByEndStation) {
-      for (const endStationIdStr of Object.keys(data.tripCountByEndStation)) {
-        const endStationId = Number(endStationIdStr)
-        const endStation = this.stationsMetadataMap.get(endStationId)
-        const tripCount = data.tripCountByEndStation[endStationId]
+    const countsByEndStation = this.state.connectionsByStart.get(highlightedStationId)
+    if (countsByEndStation?.length) {
+      for (const { end, count } of countsByEndStation) {
+        const endStation = this.props.stationsMap.get(end)
         if (!endStation) continue
         const endXY = this.projection([endStation.longitude, endStation.latitude])
         if (!endXY) continue
         this.highlightedCtx.beginPath()
         this.highlightedCtx.moveTo(stationXY[0], stationXY[1])
         this.highlightedCtx.lineTo(endXY[0], endXY[1])
-        this.highlightedCtx.lineWidth = tripCount / 10;
+        this.highlightedCtx.lineWidth = count / 10;
         this.highlightedCtx.strokeStyle = `rgba(230, 230, 250, 0.6)`
         this.highlightedCtx.stroke()
       }
@@ -242,9 +216,14 @@ export class StationsMap extends React.Component<StationsMapProps> {
 
   componentWillUnmount() {
     this.stopRenderLoop()
+    this.cancelQueries()
+  }
+
+  cancelQueries() {
     for (const queryReturn of this.queryReturns) queryReturn.cancel()
     this.queryReturns = []
   }
+
   render() {
     return (
       <div className="StationsMap" ref={this.containerRef}>
