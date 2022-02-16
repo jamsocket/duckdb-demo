@@ -1,7 +1,7 @@
 import React from 'react'
 import './ChartsPanel.css'
 import { BarChart } from '../BarChart'
-import { query, QueryReturn, Filters, Extent } from '../query'
+import { query, QueryReturn, Filters, Extent, fillBuckets } from '../query'
 
 type DistanceHistogramProps = {
   filters: Filters;
@@ -34,9 +34,7 @@ export class DistanceHistogram extends React.Component<DistanceHistogramProps, D
     const distanceP99QueryReturn = query('distanceP99')
     this.queryReturns.push(distanceP99QueryReturn)
     distanceP99QueryReturn.promise.then((distanceP99) => {
-      // TODO: filter Distance out of filters because we want to show data outside
-      // of the Distance filter's range
-      const filters = this.props.filters
+      const { distance, ...filters } = this.props.filters
       const range = distanceP99
       const numBins = (1 + Math.log2(this.props.totalTrips)) * 4
       const binSize = Math.ceil(range / numBins)
@@ -74,8 +72,8 @@ export class DistanceHistogram extends React.Component<DistanceHistogramProps, D
     let yScaleExtent: [number, number] | null = null
     let filterExtent
     if (isLoaded) {
-      bucketCounts = distanceBuckets.map(({ count }) => count)
-      bucketValueStart = distanceBuckets[0].distance
+      bucketCounts = this.state.binSize ? fillBuckets(distanceBuckets, 'count', 'distance', (dist: number) => dist + this.state.binSize!) : [0]
+      bucketValueStart = distanceBuckets.length ? distanceBuckets[0].distance : 0
       // TODO: should include the entire bottom and top buckets
       xScaleExtent = [0, distanceP99]
       yScaleExtent = [0, maxDistanceBucket]

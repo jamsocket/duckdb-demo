@@ -1,0 +1,3 @@
+.ChartsPanel .data-bar {
+  transition: y 300ms ease-in-out, height 300ms ease-in-out;
+}

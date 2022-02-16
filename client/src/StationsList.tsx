@@ -1,71 +1,40 @@
 import React from 'react'
 import './StationsList.css'
 import { BarChart } from './BarChartCanvas'
-import { query, QueryReturn } from './query'
+import { query } from './query'
 import type {
   StationId,
-  UserType,
-  UserBirthYear,
-  TripCountByDay,
-  StationMetadata,
-  DayOfWeek
+  Filters,
+  QueryReturn
 } from './query'
 
-const STATIONS_DATA_PROPERTY_COUNT = 2
-type StationData = {
-  tripCountByEndStation?: Record<StationId, number>;
-  tripCountByUserType?: Record<UserType, number>
-  tripCountByDay?: TripCountByDay;
-  tripCountByUserBirthYear?: Record<UserBirthYear, number>;
-}
+
+const TOP_N_COUNT = 20
 
 type StationsListProps = {
-  stationsMap: Map<StationId, StationMetadata>;
-  maxHourlyTrips: number;
-  onStationHover: (stationId: StationId | null) => void
-}
-export function StationsList({ stationsMap, onStationHover, maxHourlyTrips }: StationsListProps) {
-  const stations = Array.from(stationsMap.values())
-  return (
-    <ul className="Stations" onMouseLeave={() => onStationHover(null)}>
-      {stations.map(station =>
-        <Station
-          key={station.id}
-          metadata={station}
-          maxHourlyTrips={maxHourlyTrips}
-          onMouseEnter={() => onStationHover(station.id)}
-          onMouseLeave={() => onStationHover(null)}
-        />
-      )}
-    </ul>
-  )
+  filters: Filters;
+  onStationHover: (stationId: StationId | null) => void;
 }
 
-type StationProps = {
-  metadata: StationMetadata;
-  maxHourlyTrips: number;
-  onMouseEnter: () => void;
-  onMouseLeave: () => void;
+type StationsListState = {
+  topStations: { stationId: number; count: number }[];
 }
-type StationState = { data: StationData }
-class Station extends React.Component<StationProps, StationState> {
-  state: StationState = { data: {} }
+
+export class StationsList extends React.Component<StationsListProps, StationsListState> {
+  state: StationsListState = { topStations: [] }
   queryReturns: QueryReturn[] = []
   componentDidMount() {
-    const endStationQueryReturn = query('tripCountsByEndStation', this.props.metadata.id)
-    this.queryReturns.push(endStationQueryReturn)
-    endStationQueryReturn.promise.then((res) => {
-      // eslint-disable-next-line react/no-direct-mutation-state
-      this.state.data.tripCountByEndStation = res.tripCountByEndStation
-      this.setState({ data: this.state.data })
-    })
-
-    const dayHourQueryReturn = query('tripCountsByDayHour', this.props.metadata.id)
-    this.queryReturns.push(dayHourQueryReturn)
-    dayHourQueryReturn.promise.then((res) => {
-      // eslint-disable-next-line react/no-direct-mutation-state
-      this.state.data.tripCountByDay = res.tripCountByDay
-      this.setState({ data: this.state.data })
+    this.fetchStations()
+  }
+  componentDidUpdate() {
+    this.fetchStations()
+  }
+  fetchStations() {
+    const stationsQueryReturn = query('topNStations', this.props.filters, TOP_N_COUNT)
+    this.queryReturns.push(stationsQueryReturn)
+    stationsQueryReturn.promise.then((res) => {
+      if (res === this.state.topStations) return
+      this.setState({ topStations: res })
     })
   }
   componentWillUnmount() {
@@ -73,23 +42,80 @@ class Station extends React.Component<StationProps, StationState> {
     this.queryReturns = []
   }
   render() {
-    const { metadata, maxHourlyTrips } = this.props
-    const { data } = this.state
+    const { onStationHover } = this.props
+    const { topStations } = this.state
+    return (
+      <ul className="Stations" onMouseLeave={() => onStationHover(null)}>
+        {topStations.map(station =>
+          <Station
+            key={station.stationId}
+            id={station.stationId}
+            filters={this.props.filters}
+            onMouseEnter={() => onStationHover(station.stationId)}
+            onMouseLeave={() => onStationHover(null)}
+          />
+        )}
+      </ul>
+    )
+  }
+}
+
+type StationProps = {
+  id: number;
+  filters: Filters;
+  onMouseEnter: () => void;
+  onMouseLeave: () => void;
+}
+
+type StationState = {
+  tripCountByHour: number[] | null;
+  maxHourlyTrips: number | null;
+  stationName: string | null;
+}
+class Station extends React.Component<StationProps, StationState> {
+  state: StationState = { tripCountByHour: null, maxHourlyTrips: null, stationName: null }
+  queryReturns: QueryReturn[] = []
+  componentDidMount() {
+    this.fetchData()
+  }
+  componentDidUpdate() {
+    this.fetchData()
+  }
+  fetchData() {
+    const maxHourlyTripsQueryReturn = query('maxHourlyTrips', this.props.filters)
+    this.queryReturns.push(maxHourlyTripsQueryReturn)
+    maxHourlyTripsQueryReturn.promise.then((res) => {
+      if (res.maxHourlyTrips === this.state.maxHourlyTrips) return
+      this.setState({ maxHourlyTrips: res.maxHourlyTrips })
+    })
+
+    const dayHourQueryReturn = query('tripsByHour', this.props.filters, this.props.id)
+    this.queryReturns.push(dayHourQueryReturn)
+    dayHourQueryReturn.promise.then((res) => {
+      if (res === this.state.tripCountByHour) return
+      this.setState({ tripCountByHour: res })
+    })
+
+    const stationNameReturn = query('stationName', this.props.id)
+    this.queryReturns.push(stationNameReturn)
+    stationNameReturn.promise.then((res) => {
+      if (res === this.state.stationName) return
+      this.setState({ stationName: res })
+    })
+  }
+  componentWillUnmount() {
+    for (const queryReturn of this.queryReturns) queryReturn.cancel()
+    this.queryReturns = []
+  }
+  render() {
+    const { tripCountByHour, maxHourlyTrips, stationName } = this.state
 
     let totalTripsFromStation = null
-    if (data.tripCountByDay) {
-      totalTripsFromStation = Object.values(data.tripCountByDay).reduce(
-        (sum, hours) => sum + hours.reduce((s, v) => s + v, 0),
-        0
-      )
+    if (tripCountByHour) {
+      totalTripsFromStation = tripCountByHour.reduce((sum, count) => sum + count, 0)
     }
 
-    let percLoaded = 0
-    if (data) {
-      percLoaded = Object.keys(data).length / STATIONS_DATA_PROPERTY_COUNT
-    }
-
-    const isLoaded = percLoaded === 1
+    const isLoaded = Boolean(tripCountByHour)
 
     return (
       <li
@@ -97,14 +123,14 @@ class Station extends React.Component<StationProps, StationState> {
         onMouseEnter={this.props.onMouseEnter}
         onMouseLeave={this.props.onMouseLeave}
       >
-        <div className="StationName">{metadata.name}</div>
+        <div className="StationName">{stationName}</div>
         <div className="StationData">
           <div className="TripsVolume">
-            {data.tripCountByDay ? <TripsHistogram tripCountByDay={data.tripCountByDay} maxHourlyTrips={maxHourlyTrips} /> : null}
+            {tripCountByHour ? <TripsHistogram tripCountByHour={tripCountByHour} maxHourlyTrips={maxHourlyTrips || 1} /> : null}
           </div>
           <div className="TripsCount" >{totalTripsFromStation} trips</div>
           <div className="DataLoader">
-            <div className="DataLoader-bar" style={{ width: `${percLoaded * 100 | 0}%` }} />
+            <div className="DataLoader-bar" style={{ width: isLoaded ? `100%` : '0%' }} />
           </div>
         </div>
       </li>
@@ -112,16 +138,10 @@ class Station extends React.Component<StationProps, StationState> {
   }
 }
 
-type TripsHistogramProps = { tripCountByDay: TripCountByDay; maxHourlyTrips: number }
+type TripsHistogramProps = { tripCountByHour: number[]; maxHourlyTrips: number }
 function TripsHistogram (props: TripsHistogramProps) {
-  const avgHourlyTrips = new Array(24).fill(0)
-  for (const dayIdx of Object.keys(props.tripCountByDay)) {
-    const hours = props.tripCountByDay[Number(dayIdx) as DayOfWeek]
-    for (let i = 0; i < hours.length; i++) avgHourlyTrips[i] += hours[i]
-  }
-
   return <BarChart
-    bucketCounts={avgHourlyTrips}
+    bucketCounts={props.tripCountByHour}
     bucketValueStart={0}
     bucketSize={1}
     barGap={1}

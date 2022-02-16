@@ -9,6 +9,7 @@ type QueryName =
   'tripsByDate' |
   'tripsByDay' |
   'tripsByHour' |
+  'topNStations' |
   'maxHourlyTrips' |
   'stationsMetadata' |
   'birthYearExtent' |
@@ -17,6 +18,7 @@ type QueryName =
   'durationDistribution' |
   'distanceP99' |
   'distanceDistribution' |
+  'stationName' |
   'tripCountsByEndStation' |
   'tripCountsByUserType' |
   'tripCountsByDayHour' |
@@ -100,7 +102,10 @@ const queries: Record<QueryName, QueryDef> = {
     })
   },
   tripsByDate: {
-    getQueryStr: (filters: Filters | null) => `SELECT date_trunc('day', start_time) as date, COUNT(*) FROM ${tableName} GROUP BY date`,
+    getQueryStr: (filters: Filters | null) => {
+      const whereClause = filters ? combineWhereExpressions(getFilterExpressions(filters)) : ''
+      return `SELECT date_trunc('day', start_time) as date, COUNT(*) FROM ${tableName} ${whereClause} GROUP BY date ORDER BY date`
+    },
     transformResponse: (result: TripsByDateDB): TripsByDateRow[] => {
       const tripsByDate: TripsByDateRow[] = result.map(row => ({
         epoch: new Date(row.date).valueOf(),
@@ -113,7 +118,10 @@ const queries: Record<QueryName, QueryDef> = {
     }
   },
   tripsByDay: {
-    getQueryStr: (filters: Filters | null) => `SELECT dayofweek(start_time) as day, COUNT(*) FROM ${tableName} GROUP BY day`,
+    getQueryStr: (filters: Filters | null) => {
+      const whereClause = filters ? combineWhereExpressions(getFilterExpressions(filters)) : ''
+      return `SELECT dayofweek(start_time) as day, COUNT(*) FROM ${tableName} ${whereClause} GROUP BY day`
+    },
     transformResponse: (result: TripsByDayDB): number[] => {
       const tripsByDay = new Array(7).fill(0)
       for (const row of result) tripsByDay[row.day] = row['count_star()']
@@ -121,11 +129,28 @@ const queries: Record<QueryName, QueryDef> = {
     }
   },
   tripsByHour: {
-    getQueryStr: (filters: Filters | null) => `SELECT hour(start_time) as hour, COUNT(*) FROM ${tableName} GROUP BY hour`,
+    getQueryStr: (filters: Filters | null, stationId: number | null) => {
+      const whereExpressions = Number.isFinite(stationId) ? [`start_station_id = ${stationId}`] : []
+      if (filters) whereExpressions.push(...getFilterExpressions(filters))
+      const whereClause = combineWhereExpressions(whereExpressions)
+      return `SELECT hour(start_time) as hour, COUNT(*) FROM ${tableName} ${whereClause} GROUP BY hour`
+    },
     transformResponse: (result): number[] => {
       const tripsByHour = new Array(24).fill(0)
       for (const row of result) tripsByHour[row.hour] = row['count_star()']
       return tripsByHour
+    }
+  },
+  topNStations: {
+    getQueryStr: (filters: Filters | null, n: number) => {
+      const whereClause = filters ? combineWhereExpressions(getFilterExpressions(filters)) : ''
+      return `SELECT start_station_id, count(*) as total from ${tableName} ${whereClause} GROUP BY start_station_id ORDER BY total DESC LIMIT ${n}`
+    },
+    transformResponse: (result) => {
+      return result.map((row: { start_station_id: number; total: number }) => ({
+        stationId: row.start_station_id,
+        count: row.total
+      }))
     }
   },
   birthYearExtent: {
@@ -133,7 +158,12 @@ const queries: Record<QueryName, QueryDef> = {
     transformResponse: (result) => [result[0].birthYearMin, result[0].birthYearMax]
   },
   birthYearDistribution: {
-    getQueryStr: (filters: Filters | null, valueMax: number) => `SELECT birth_year, COUNT(*) FROM ${tableName} WHERE birth_year < ${valueMax} GROUP BY 1 ORDER BY 1`,
+    getQueryStr: (filters: Filters | null, valueMax: number) => {
+      const whereExpressions = [`birth_year < ${valueMax}`]
+      if (filters) whereExpressions.push(...getFilterExpressions(filters))
+      const whereClause = combineWhereExpressions(whereExpressions)
+      return `SELECT birth_year, COUNT(*) FROM ${tableName} ${whereClause} GROUP BY 1 ORDER BY 1`
+    },
     transformResponse: (result: any) => {
       return result.map((row: { birth_year: number; 'count_star()': number }) => ({
         birthYear: row.birth_year,
@@ -146,7 +176,12 @@ const queries: Record<QueryName, QueryDef> = {
     transformResponse: (result) => result[0].durationMax
   },
   durationDistribution: {
-    getQueryStr: (filters: Filters | null, binSize: number, valueMax: number) => `SELECT floor(duration/${binSize})*${binSize} as binFloor, COUNT(*) FROM ${tableName} WHERE duration < ${valueMax} GROUP BY 1 ORDER BY 1`,
+    getQueryStr: (filters: Filters | null, binSize: number, valueMax: number) => {
+      const whereExpressions = [`duration < ${valueMax}`]
+      if (filters) whereExpressions.push(...getFilterExpressions(filters))
+      const whereClause = combineWhereExpressions(whereExpressions)
+      return `SELECT floor(duration/${binSize})*${binSize} as binFloor, COUNT(*) FROM ${tableName} ${whereClause} GROUP BY 1 ORDER BY 1`
+    },
     transformResponse: (result) => {
       return result.map((row: { binFloor: number; 'count_star()': number }) => ({
         duration: row.binFloor,
@@ -161,7 +196,10 @@ const queries: Record<QueryName, QueryDef> = {
   distanceDistribution: {
     getQueryStr: (filters: Filters | null, binSize: number, valueMax: number) => {
       const binSizeKM = binSize / 1000
-      return `SELECT floor(distance/${binSizeKM})*${binSizeKM} as binFloor, COUNT(*) FROM ${tableName} WHERE distance < ${valueMax} GROUP BY 1 ORDER BY 1`
+      const whereExpressions = [`distance < ${valueMax}`]
+      if (filters) whereExpressions.push(...getFilterExpressions(filters))
+      const whereClause = combineWhereExpressions(whereExpressions)
+      return `SELECT floor(distance/${binSizeKM})*${binSizeKM} as binFloor, COUNT(*) FROM ${tableName} ${whereClause} GROUP BY 1 ORDER BY 1`
     },
     transformResponse: (result) => {
       return result.map((row: { binFloor: number; 'count_star()': number }) => ({
@@ -171,7 +209,10 @@ const queries: Record<QueryName, QueryDef> = {
     }
   },
   maxHourlyTrips: {
-    getQueryStr: () => `SELECT COUNT(*) FROM ${tableName} GROUP BY HOUR(start_time), start_station_id`,
+    getQueryStr: (filters: Filters | null) => {
+      const whereClause = filters ? combineWhereExpressions(getFilterExpressions(filters)) : ''
+      return `SELECT COUNT(*) FROM ${tableName} ${whereClause} GROUP BY HOUR(start_time), start_station_id`
+    },
     transformResponse: (result: MaxHourlyTripsDB) => {
       let max = 0
       for (const obj of result) max = Math.max(max, obj['count_star()'])
@@ -188,6 +229,10 @@ const queries: Record<QueryName, QueryDef> = {
         name: station['start_station_name'],
       }))
     })
+  },
+  stationName: {
+    getQueryStr: (id: number) => `SELECT start_station_name from ${tableName} WHERE start_station_id=${id} LIMIT 1`,
+    transformResponse: (result) => result[0]['start_station_name']
   },
   tripCountsByEndStation: {
     getQueryStr: (startStationId: StationId) => `SELECT end_station_id, COUNT(*) FROM ${tableName} WHERE start_station_id=${startStationId} GROUP BY end_station_id`,
@@ -286,6 +331,7 @@ export function query (queryName: QueryName, ...queryArgs: Array<any>): QueryRet
       }
   
       cacheitem.callbacks.push((response) => {
+        console.log('response name:queryTime', queryName, response.queryTime)
         let transformedResponse = transformedResponseCache.get(queryStr) || queries[queryName].transformResponse(response.result, ...queryArgs)
         transformedResponseCache.set(queryStr, transformedResponse)
         if (!isCancelled) resolve(transformedResponse)
@@ -298,4 +344,56 @@ export function query (queryName: QueryName, ...queryArgs: Array<any>): QueryRet
     }),
     cancel: () => isCancelled = true
   }
+}
+
+const filterNameToProperty: { [Property in keyof Filters]: string } = {
+  date: "date_trunc('day', start_time)",
+  dayOfWeek: 'dayofweek(start_time)',
+  hourly: 'hour(start_time)',
+  distance: 'distance',
+  duration: 'duration',
+  birthYear: 'birth_year'
+}
+function getFilterExpressions(filters: Filters): string[] {
+  const expressions: string[] = []
+  const filterNames = Object.keys(filters) as (keyof Filters)[]
+  for (const name of filterNames) {
+    const extent = filters[name]
+    if (!extent) continue
+    const property = filterNameToProperty[name]
+    const min = name === 'distance' ? extent[0] / 1000 : name === 'date' ? `'${new Date(extent[0]).toISOString()}'` : extent[0]
+    const max = name === 'distance' ? extent[1] / 1000 : name === 'date' ? `'${new Date(extent[1]).toISOString()}'` : extent[1]
+    expressions.push(
+      `${property} >= ${min}`,
+      `${property} < ${max}`
+    )
+  }
+  return expressions
+}
+
+function combineWhereExpressions(expressions: string[]): string {
+  if (expressions.length === 0) return ''
+  return `WHERE ${expressions.join(' AND ')}`
+}
+
+export function fillBuckets(
+  list: Record<string, any>[],
+  countKey: string,
+  valueKey: string,
+  getNextValue: (lastValue: any) => any
+): number[] {
+  const counts: number[] = [list[0][countKey]]
+  for (let i = 1; i < list.length; i++) {
+    let nextValue = getNextValue(list[i - 1][valueKey])
+    while (!isEqual(nextValue, list[i][valueKey])) {
+      counts.push(0)
+      nextValue = getNextValue(nextValue)
+    }
+    counts.push(list[i][countKey])
+  }
+  return counts
+}
+
+function isEqual(a: number, b: number) {
+  return Math.abs(a - b) < 0.1
 }

@@ -1,7 +1,7 @@
 import React from 'react'
 import './ChartsPanel.css'
 import { BarChart } from '../BarChart'
-import { query, QueryReturn, Filters, Extent } from '../query'
+import { query, QueryReturn, Filters, Extent, fillBuckets } from '../query'
 
 type BirthYearHistogramProps = {
   filters: Filters;
@@ -32,9 +32,7 @@ export class BirthYearHistogram extends React.Component<BirthYearHistogramProps,
     const birthYearExtentQueryReturn = query('birthYearExtent')
     this.queryReturns.push(birthYearExtentQueryReturn)
     birthYearExtentQueryReturn.promise.then((birthYearExtent) => {
-      // TODO: filter Birth Year out of filters because we want to show data outside
-      // of the Birth Year filter's range
-      const filters = this.props.filters
+      const { birthYear, ...filters } = this.props.filters
       const valueMax = birthYearExtent[1]
 
       // TODO: check if this needs updating to avoid unnecessary rerenders
@@ -69,8 +67,8 @@ export class BirthYearHistogram extends React.Component<BirthYearHistogramProps,
     let yScaleExtent: [number, number] | null = null
     let filterExtent
     if (isLoaded) {
-      bucketCounts = birthYearBuckets.map(({ count }) => count)
-      bucketValueStart = birthYearBuckets[0].birthYear
+      bucketCounts = fillBuckets(birthYearBuckets, 'count', 'birthYear', (by: number) => by + 1)
+      bucketValueStart = birthYearBuckets[0] ? birthYearBuckets[0].birthYear : 0
       // TODO: should include the entire bottom and top buckets
       xScaleExtent = birthYearExtent
       yScaleExtent = [0, maxBirthYearBucket]

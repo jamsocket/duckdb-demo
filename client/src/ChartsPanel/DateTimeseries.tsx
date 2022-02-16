@@ -1,7 +1,9 @@
 import React from 'react'
 import './ChartsPanel.css'
 import { BarChart } from '../BarChart'
-import { query, QueryReturn, Filters, Extent, TripsByDateRow } from '../query'
+import { query, QueryReturn, Filters, Extent, TripsByDateRow, fillBuckets } from '../query'
+
+const ONE_DAY = 24 * 60 * 60 * 1000
 
 type DateTimeseriesProps = {
   filters: Filters;
@@ -44,9 +46,7 @@ export class DateTimeseries extends React.Component<DateTimeseriesProps, DateTim
       this.setState({ maxTripsInDate })
     })
 
-    // TODO: filter Date out of filters because we want to show data outside
-    // of the Date filter's range
-    const filters = this.props.filters
+    const { date, ...filters } = this.props.filters
     const tripsByDateQueryReturn = query('tripsByDate', filters)
     this.queryReturns.push(tripsByDateQueryReturn)
     tripsByDateQueryReturn.promise.then((tripsByDate) => {
@@ -67,8 +67,8 @@ export class DateTimeseries extends React.Component<DateTimeseriesProps, DateTim
     let yScaleExtent: [number, number] | null = null
     let filterExtent
     if (isLoaded) {
-      bucketCounts = tripsByDate.map(({ count }) => count)
-      bucketValueStart = tripsByDate[0].epoch
+      bucketCounts = fillBuckets(tripsByDate, 'count', 'epoch', (ts: number) => ts + ONE_DAY)
+      bucketValueStart = tripsByDate[0] ? tripsByDate[0].epoch : 0
       xScaleExtent = [allTripsTimerange[0].valueOf(), allTripsTimerange[1].valueOf()]
       yScaleExtent = [0, maxTripsInDate]
       filterExtent = this.props.filters['date'] || xScaleExtent
@@ -79,7 +79,7 @@ export class DateTimeseries extends React.Component<DateTimeseriesProps, DateTim
         <div className={`chart-container ${isLoaded ? 'is-loaded' : ''}`}>
           {isLoaded && <BarChart
             bucketCounts={bucketCounts}
-            bucketSize={24 * 60 * 60 * 1000}
+            bucketSize={ONE_DAY}
             bucketValueStart={bucketValueStart}
             xScaleExtent={xScaleExtent}
             yScaleExtent={yScaleExtent}

@@ -1,6 +1,5 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
-// import { StationsList } from './StationsList'
 import { ChartsPanel } from './ChartsPanel'
 import { StationsMap } from './StationsMap'
 import './index.css';
@@ -92,12 +91,10 @@ class App extends React.Component<AppProps, AppState> {
               </div>
             </div>
             <div className="App-right">
-              {totalTrips && <ChartsPanel totalTrips={totalTrips}/>}
-              {/* <StationsList
-                maxHourlyTrips={maxHourlyTrips}
-                stationsMap={stationsMap}
+              {totalTrips && <ChartsPanel
+                totalTrips={totalTrips}
                 onStationHover={(id) => this.setState({ highlightedStation: id })}
-              /> */}
+              />}
             </div>
           </div>
         ) : null}

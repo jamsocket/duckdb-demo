@@ -34,9 +34,7 @@ export class DayOfWeekTimeseries extends React.Component<DayOfWeekTimeseriesProp
       this.setState({ maxTripsInDay })
     })
 
-    // TODO: filter Day out of filters because we want to show data outside
-    // of the Day filter's range
-    const filters = this.props.filters
+    const { dayOfWeek, ...filters } = this.props.filters
     const tripsByDayQueryReturn = query('tripsByDay', filters)
     this.queryReturns.push(tripsByDayQueryReturn)
     tripsByDayQueryReturn.promise.then((tripsByDay) => {

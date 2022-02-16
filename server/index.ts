@@ -57,7 +57,7 @@ function startServer(db: typeof duckdb.Database) {
       // console.log((performance.now() - startTime) | 0, 'request for:', queryStr)
       const dbCallPlaced = performance.now()
       db.all(queryStr, (err: any, result: any) => {
-        // console.log((performance.now() - startTime) | 0, 'db response for:', queryStr)
+        console.log((performance.now() - startTime) | 0, (performance.now() - dbCallPlaced) | 0, 'db response for:', queryStr)
         if (err) {
           // TODO: send error to client?
           console.warn(`duckdb: error from ${queryStr}`, err)
@@ -120,6 +120,7 @@ function createDatabase() {
           reject(err)
         }
         console.log('duckdb database set to read only')
+        db.run('PRAGMA enable_profiling')
         db.all('SELECT * FROM duckdb_settings()', (err: Error, response: any) => {
           if (err) {
             console.error('duckdb error reading settings:', err)
@@ -127,13 +128,12 @@ function createDatabase() {
           }
           const settings = Object.fromEntries(response.map((setting: any) => [setting.name, setting.value]))
           console.log('duckdb database running with settings:', settings)
+          resolve(db)
         })
-        resolve(db)
       })
     })
   })
 }
-
 function isUri(uri: string) {
   return uri.search(/https?:\/\//) === 0
 }

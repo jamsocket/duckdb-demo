@@ -1,7 +1,7 @@
 import React from 'react'
 import './ChartsPanel.css'
 import { BarChart } from '../BarChart'
-import { query, QueryReturn, Filters, Extent } from '../query'
+import { query, QueryReturn, Filters, Extent, fillBuckets } from '../query'
 
 type DurationHistogramProps = {
   filters: Filters;
@@ -34,9 +34,7 @@ export class DurationHistogram extends React.Component<DurationHistogramProps, D
     const durationP99QueryReturn = query('durationP99')
     this.queryReturns.push(durationP99QueryReturn)
     durationP99QueryReturn.promise.then((durationP99) => {
-      // TODO: filter Date out of filters because we want to show data outside
-      // of the Date filter's range
-      const filters = this.props.filters
+      const { duration, ...filters } = this.props.filters
       const range = durationP99
       const numBins = (1 + Math.log2(this.props.totalTrips)) * 4
       const binSize = Math.ceil(range / numBins)
@@ -74,8 +72,8 @@ export class DurationHistogram extends React.Component<DurationHistogramProps, D
     let yScaleExtent: [number, number] | null = null
     let filterExtent
     if (isLoaded) {
-      bucketCounts = durationBuckets.map(({ count }) => count)
-      bucketValueStart = durationBuckets[0].duration
+      bucketCounts = this.state.binSize ? fillBuckets(durationBuckets, 'count', 'duration', (dur: number) => dur + this.state.binSize!) : [0]
+      bucketValueStart = durationBuckets.length ? durationBuckets[0].duration : 0
       // TODO: should include the entire bottom and top buckets
       xScaleExtent = [0, durationP99]
       yScaleExtent = [0, maxDurationBucket]

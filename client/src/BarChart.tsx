@@ -1,5 +1,6 @@
 import { useRef, useState, useLayoutEffect, MouseEventHandler } from 'react';
 import type { Extent } from './query'
+import './BarChart.css'
 
 type BarChartProps = {
   bucketCounts: number[];
@@ -53,11 +54,20 @@ export function BarChart (props: BarChartProps) {
   let onChange
   if (props.onChangeFilterExtent) {
     onChange = (pxExtent: number[]) => {
-      const extent = [
-        lerp(pxExtent[0], 0, width, xScaleExtent![0], xScaleExtent![1]),
-        lerp(pxExtent[1], 0, width, xScaleExtent![0], xScaleExtent![1])
-      ]
-      props.onChangeFilterExtent!(extent)
+      let min = lerp(pxExtent[0], 0, width, xScaleExtent![0], xScaleExtent![1])
+      let max = lerp(pxExtent[1], 0, width, xScaleExtent![0], xScaleExtent![1])
+
+      // do some rounding for floating point issues
+      min = Math.round(min * 10000) / 10000
+      max = Math.round(max * 10000) / 10000
+
+      if (filterExtent) {
+        if (filterExtent[0] === min && filterExtent[1] === max) {
+          return
+        }
+      }
+
+      props.onChangeFilterExtent!([min, max])
     }
   }
 
@@ -67,6 +77,7 @@ export function BarChart (props: BarChartProps) {
     <svg ref={svgRef} width={width} height={height} style={{ height: '100%', width: '100%' }}>
       {show && bars.map((bar, i) => <rect
         key={i}
+        className='data-bar'
         x={bar.x}
         y={bar.y}
         width={bar.width}
