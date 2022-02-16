@@ -69,20 +69,25 @@ function startServer(db: typeof duckdb.Database) {
     const prefetchedQueriesCount = allFetchedQueries.length
     let curPrefetchQuery = 0
 
+    const PREFETCH_BATCH_INTERVAL = 3000
     setTimeout(function sendPrefetch() {
-      const qStr = allFetchedQueries[curPrefetchQuery]
-      curPrefetchQuery += 1
-      if (cache.has(qStr)) {
-        const queryTime = 0
-        const cacheHit = true
-        const prefetch = true
-        const result = cache.get(qStr)
-        sendResponse(qStr, queryTime, cacheHit, prefetch, result)
-      } else {
-        console.warn('queryString seen but result not cached')
+      const PREFETCH_QUERY_BATCH_SIZE = 30
+      const queriesCount = Math.min(PREFETCH_QUERY_BATCH_SIZE, prefetchedQueriesCount - curPrefetchQuery)
+      for (let i = 0; i < queriesCount; i++) {
+        const qStr = allFetchedQueries[curPrefetchQuery + i]
+        if (cache.has(qStr)) {
+          const queryTime = 0
+          const cacheHit = true
+          const prefetch = true
+          const result = cache.get(qStr)
+          sendResponse(qStr, queryTime, cacheHit, prefetch, result)
+        } else {
+          console.warn('queryString seen but result not cached')
+        }
       }
-      if (curPrefetchQuery < prefetchedQueriesCount) setTimeout(sendPrefetch, 5)
-    }, 5)
+      curPrefetchQuery += queriesCount
+      if (curPrefetchQuery < prefetchedQueriesCount) setTimeout(sendPrefetch, PREFETCH_BATCH_INTERVAL)
+    }, PREFETCH_BATCH_INTERVAL)
 
     const queryQueue: string[] = []
     const queryIsCancelled = new Map<string, boolean>()
