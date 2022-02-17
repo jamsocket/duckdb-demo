@@ -49,14 +49,6 @@ function startServer(db: typeof duckdb.Database) {
 
   const io = new Server(server)
 
-  // -----------------------------------------------------
-  // TO TRY:
-  // 1. cache all the queries in process memory here and send them down in the background
-  // to all newly connected dashboards
-  // 2. when a query is cancelled, simply deprioritize it, but still do the query and send
-  // the results down in the background
-  // -----------------------------------------------------
-
   const cache = new Map<string, any>()
   const allFetchedQueries: string[] = []
 
@@ -69,7 +61,7 @@ function startServer(db: typeof duckdb.Database) {
     const prefetchedQueriesCount = allFetchedQueries.length
     let curPrefetchQuery = 0
 
-    const PREFETCH_BATCH_INTERVAL = 3000
+    const PREFETCH_BATCH_INTERVAL = 7000
     setTimeout(function sendPrefetch() {
       const PREFETCH_QUERY_BATCH_SIZE = 30
       const queriesCount = Math.min(PREFETCH_QUERY_BATCH_SIZE, prefetchedQueriesCount - curPrefetchQuery)
@@ -119,23 +111,32 @@ function startServer(db: typeof duckdb.Database) {
       if (queryIsCancelled.get(queryStr)) {
         return makeQuery()
       }
-      const dbCallPlaced = performance.now()
       isQuerying = true
-      db.all(queryStr, (err: any, result: any) => {
-        console.log((performance.now() - startTime) | 0, (performance.now() - dbCallPlaced) | 0, 'db response for:', queryStr)
+      dbQuery(queryStr).then(({ result, queryTime }: { result: any; queryTime: number }) => {
+        console.log((performance.now() - startTime) | 0, queryTime | 0, 'db response for:', queryStr)
         isQuerying = false
-        if (!cache.has(queryStr)) allFetchedQueries.push(queryStr)
-        cache.set(queryStr, result)
         makeQuery()
-        if (err) {
-          // TODO: send error to client?
-          console.warn(`duckdb: error from ${queryStr}`, err)
-        }
 
-        const queryTime = performance.now() - dbCallPlaced
         const cacheHit = false
         const prefetch = false
         sendResponse(queryStr, queryTime, cacheHit, prefetch, result)
+      })
+    }
+
+    function dbQuery(queryStr: string) {
+      return new Promise((resolve, reject) => {
+        const dbCallPlaced = performance.now()
+        db.all(queryStr, (err: any, result: any) => {
+          const queryTime = performance.now() - dbCallPlaced
+          if (err) {
+            console.warn(`duckdb: error from ${queryStr}`, err)
+            reject(err)
+            return
+          }
+          if (!cache.has(queryStr)) allFetchedQueries.push(queryStr)
+          cache.set(queryStr, result)
+          resolve({ result, queryTime })
+        })
       })
     }
 
